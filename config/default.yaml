@@ -1,0 +1,145 @@
+# Server configuration template.
+#
+# On first start the bot copies this file to CONFIG_PATH (default /data/server.yaml, next to the database).
+# /setup fills in this server's role/channel IDs and your choices; you normally never edit IDs by hand.
+# Edit the runtime copy (not this template), then run `/baseline reload` in Discord or restart the bot.
+# Permission names use Discord's snake_case names: view_channel, send_messages, connect, speak, ...
+
+# ---------------------------------------------------------------- installation identity (set by /setup)
+identity:
+  control_center_name: "Control Center"   # title of the 🎛️ menu
+  subtitle: ""
+  bot_nickname: ""                        # nickname in this server ("" = unchanged)
+
+# ---------------------------------------------------------------- trust levels (presentation + preferences)
+# trust_level_1 = highest normal trust, trust_level_3 = default level. The KEY is the security identity;
+# names and colours are display only.
+trust:
+  names:
+    trust_level_1: "Trusted"
+    trust_level_2: "Standard"
+    trust_level_3: "Member"
+  colors: {}                       # e.g. {trust_level_1: "#4A90D9"}; empty = Discord's default colour
+  permissions: {}                  # extra permissions per level on top of the generic preset, e.g.
+                                   #   trust_level_2: [priority_speaker]
+                                   # Administrator/manage/kick/ban/move/mute are always refused for levels.
+  guest_invite_levels: [trust_level_1]   # who may create guest invites ([] = only owners)
+
+# ---------------------------------------------------------------- server layout (names used by /setup)
+layout:
+  names: {}                        # override any default, e.g. {chat: "general", cat_voice: "Voice Rooms"}
+
+onboarding:
+  rules:
+    - ["🤝", "Be respectful", "No harassment, hate speech or personal attacks."]
+    - ["📣", "No spam", "No mass mentions, unsolicited advertising or invite links to other servers."]
+    - ["🔞", "Keep it appropriate", "No NSFW or illegal content."]
+    - ["📜", "Follow Discord's rules", "Discord's Terms of Service and Community Guidelines apply here."]
+
+# ---------------------------------------------------------------- access + permission baseline (engine)
+access:
+  owner_ids: []
+  admin_roles: []
+  moderator_roles: []
+  repair_min_level: owner
+  ai_min_level: mod
+
+baseline:
+  trust_levels:                    # roles are filled in by /setup
+    trust_level_1: {role: "", rank: 1, description: "Level 1 — highest normal trust", allow_dangerous: []}
+    trust_level_2: {role: "", rank: 2, description: "Level 2", allow_dangerous: []}
+    trust_level_3: {role: "", rank: 3, description: "Level 3 — default", allow_dangerous: []}
+  default:
+    forbid: [administrator, manage_guild, manage_roles, manage_channels, ban_members, kick_members,
+             moderate_members, manage_webhooks, mention_everyone, manage_messages, manage_nicknames,
+             manage_guild_expressions, manage_events, manage_threads, view_audit_log, move_members,
+             mute_members, deafen_members]
+    require: [view_channel, send_messages, read_message_history, use_application_commands, add_reactions,
+              embed_links, attach_files, connect, speak, use_vad]
+  channels: []
+  hierarchy: []
+  enforce_trust_level_order: false
+  allow_unsynced: []
+  allow_member_overwrites: false
+
+privacy:
+  owner_id: null                   # OWNER_ID in .env, else the server owner
+  approved_owner_equivalents: []   # OWNER_EQUIVALENT_IDS in .env
+  social_privacy: false            # true = warn when level roles reveal a ranking (names, hoist, colours)
+  voice_powers_forbidden: true     # Move/Mute/Deafen on level roles would reveal presence in hidden rooms
+  tiers:
+    owner_area:    {rank: 0, roles: [], label: "Owner area"}
+    trust_level_1: {rank: 1, roles: [], label: "Level 1"}
+    trust_level_2: {rank: 2, roles: [], label: "Level 2"}
+    trust_level_3: {rank: 3, roles: [], label: "Level 3"}
+    public:        {rank: 4, roles: [], label: "Public"}
+  areas: {}                        # channel/category ID -> area (filled in by /setup)
+
+log_channel: null
+
+guardian:
+  enabled: true
+  alert_channel: null
+  post_min_severity: WARNING
+  dm_owner_on_critical: true
+  trusted_bots: []
+  drift_check_minutes: 10
+
+summaries:
+  daily: true
+  weekly: true
+  weekday: 6
+  hour_utc: 18
+
+voice_rooms:
+  enabled: true
+  create_channel: null
+  name_template: "{name}'s Room"
+  max_rooms: 15
+
+welcome:
+  enabled: false
+  channel: null
+  message: "Welcome {mention} to **{server}**!"
+  leave_enabled: false
+  leave_message: "**{name}** left the server."
+  dm_enabled: false
+  dm_message: "Welcome to {server}!"
+  default_roles: []
+
+security:
+  bot_admin_intended: false
+  safe_mode: false
+  max_mod_actions_per_10min: 5
+  max_changes_per_batch: 40
+  min_account_age_days: 7
+  raid_joins: 6
+  raid_window_seconds: 60
+
+retention:
+  events_days: 365
+  message_events_days: 30
+  voice_events_days: 180
+  keep_snapshots: 60
+  auto_snapshot_hours: 24
+
+message_logging:
+  metadata: true
+  content: false
+
+autoheal:
+  enabled: false                   # turn on after /setup recorded the first baseline
+  interval_minutes: 15
+  max_changes: 3
+
+music:
+  enabled: true
+  default_volume: 60
+  max_queue: 200
+  idle_disconnect_seconds: 300
+  search_prefix: ytsearch
+  idle_247_minutes: 10
+
+ai:
+  enabled: true                    # still requires AI_ENABLED=true and AI_BASE_URL in .env
+  max_tool_rounds: 6

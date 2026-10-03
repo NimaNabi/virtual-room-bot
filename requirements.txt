@@ -1,0 +1,6 @@
+discord.py==2.7.1
+wavelink==3.5.2
+aiosqlite==0.21.0
+pydantic==2.12.5
+PyYAML==6.0.3
+httpx==0.28.1

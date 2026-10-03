@@ -1,0 +1,44 @@
+# Virtual Room Bot — bot + local Lavalink music node.
+# No host ports are published: the bot only makes outbound connections (Discord, music sources).
+name: virtual-room-bot
+
+services:
+  bot:
+    build: .
+    image: virtual-room-bot:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      CONFIG_PATH: /data/server.yaml
+      LAVALINK_URI: http://lavalink:2333
+    volumes:
+      - vrbot-data:/data          # database, runtime config, snapshots — survives code updates
+    mem_limit: 384m
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4.2.2-alpine
+    restart: unless-stopped
+    profiles: ["music"]            # enabled by COMPOSE_PROFILES=music in .env
+    environment:
+      _JAVA_OPTIONS: "-Xmx320m -XX:+UseSerialGC"
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:?set LAVALINK_PASSWORD in .env}
+    volumes:
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    expose: ["2333"]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --header \"Authorization: $$LAVALINK_SERVER_PASSWORD\" http://127.0.0.1:2333/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+volumes:
+  vrbot-data:

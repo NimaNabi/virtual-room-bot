@@ -1,0 +1,42 @@
+# Lavalink 4.2 node for the bot. Password comes from env LAVALINK_SERVER_PASSWORD (.env).
+server:
+  port: 2333
+  address: 0.0.0.0
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    # Default public clients only. No OAuth/account tokens, no poToken workarounds.
+    clients: ["MUSIC", "WEB", "ANDROID_VR", "TVHTML5EMBEDDED"]
+lavalink:
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
+      snapshot: false
+  server:
+    sources:
+      youtube: false        # deprecated built-in source; replaced by youtube-plugin above
+      bandcamp: true
+      soundcloud: true
+      twitch: false
+      vimeo: true
+      http: true
+      local: false
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+    gc-warnings: true
+metrics:
+  prometheus:
+    enabled: false
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
