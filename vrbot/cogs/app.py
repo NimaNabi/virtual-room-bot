@@ -149,7 +149,8 @@ class ControlCenter(commands.Cog):
               "room_people": "room", "room_member": "room_people", "friends_pull": "friends", "friends_roominv": "friends",
               "friends_invite": "friends", "friends_access": "friends", "friends_myinv": "friends", "help_adv": "help",
               "owner_member": "owner", "owner_activity": "owner", "owner_logs": "owner", "owner_access": "owner",
-              "owner_guard": "owner"}
+              "owner_guard": "owner", "owner_find": "owner_logs",
+              "owner_updates": "owner", "owner_updnotes": "owner_updates"}
 
     @property
     def g(self) -> discord.Guild:
@@ -748,7 +749,29 @@ class ControlCenter(commands.Cog):
                          AppButton("go", "owner_logs", label="Logs", emoji="📜", row=1),
                          AppButton("go", "owner_access", label="Temporary access", emoji="🔑", row=1),
                          AppButton("go", "owner_guard", label="Guardian", emoji="🛡️", row=1),
-                         AppButton("go", "owner", label="Refresh", emoji="🔄", row=1), back(row=2))
+                         AppButton("go", "owner", label="Refresh", emoji="🔄", row=1),
+                         AppButton("go", "owner_updates", label="Updates", emoji="⚙️", row=2) if self.cog("Updates") else None,
+                         back(row=2))
+
+    async def s_owner_updates(self, m):
+        """Only present when the Updates module is installed (self-hosted installs)."""
+        self.need_owner(m)
+        up = self.cog("Updates")
+        if not up:
+            raise Toast("Updates are not managed by this installation.")
+        emb, newer = up.summary()
+        latest = up.latest().get("version")
+        return emb, view(AppButton("go", "owner_updnotes", label="What's new", emoji="📝", row=0, disabled=not latest),
+                         AppButton("updreq", latest or "", label="Update", emoji="⬆️", style=G, row=0,
+                                   disabled=not newer or bool(up.pending_request())),
+                         AppButton("go", "owner", label="Later", row=0), back("owner", row=1))
+
+    async def s_owner_updnotes(self, m):
+        self.need_owner(m)
+        up = self.cog("Updates")
+        emb = discord.Embed(title=f"📝 What's new in {up.latest().get('version', '?')}", color=COLORS["INFO"],
+                            description=up.notes()[:3900])
+        return emb, view(back("owner_updates", row=0))
 
     async def s_owner_member(self, m, uid):
         self.need_owner(m)
@@ -804,7 +827,21 @@ class ControlCenter(commands.Cog):
         return emb, view(AppSelect("olc", f"{rng}.{uid}", options=opts, row=0),
                          AppUserSelect("olm", f"{cat}.{rng}", placeholder="👤 Only this member…", row=1),
                          *[AppButton("olr", f"{cat}.{k}.{uid}", label=v, style=P if k == rng else S, row=2) for k, v in self.RANGES.items()],
-                         AppButton("olr", f"{cat}.{rng}.0", label="Everyone", row=2) if int(uid) else None, back("owner", row=3))
+                         AppButton("olr", f"{cat}.{rng}.0", label="Everyone", row=2) if int(uid) else None,
+                         AppButton("olfind", "", label="Find person", emoji="🔍", row=3), back("owner", row=3))
+
+    async def s_owner_find(self, m, q: str = ""):
+        """Find anyone who ever joined/left/was invited — by name, @username or user ID (works after they left)."""
+        self.need_owner(m)
+        types = ["member_join", "member_leave", "member_kick", "member_ban", "invite_used", "guest_join", "nick_change"]
+        q = q.strip().lstrip("@")
+        lq = LogQuery(guild_id=self.g.id, types=types, limit=15,
+                      **({"target_id": int(q)} if q.isdigit() else {"text": q}))
+        rows = await self.bot.db.query_events(lq) if q else []
+        emb = discord.Embed(title=f"🔍 {q or 'Find person'}", color=COLORS["INFO"],
+                            description="\n".join(owner_log_line(r) for r in rows)[:3900] or "No matching member events.")
+        emb.set_footer(text="Search by display name, @username or user ID")
+        return emb, view(AppButton("olfind", "", label="Search again", emoji="🔍", row=0), back("owner_logs", row=0))
 
     async def s_owner_access(self, m):
         self.need_owner(m)
@@ -1003,6 +1040,23 @@ class ControlCenter(commands.Cog):
     async def h_olr(self, i, x, v):
         self.need_owner(i.user)
         await self.show(i, "owner_logs", *x.split("."))
+
+    async def h_updreq(self, i, x, v):
+        """Record an update request; the HOST updater applies it (backup, health check, rollback)."""
+        self.need_owner(i.user)
+        up = self.cog("Updates")
+        if not up or not x:
+            raise Toast("No update to apply.")
+        up.request(x, i.user.id)
+        await self.show(i, "owner_updates", note=f"⏳ Update to **{x}** requested. It's applied by the host updater "
+                                                 "(`bash scripts/update.sh apply`, or automatically if `update.sh watch` runs).")
+
+    async def h_olfind(self, i, x, v):
+        self.need_owner(i.user)
+
+        async def go(mi, text):
+            await self.show(mi, "owner_find", text.replace("|", " ")[:60])
+        await i.response.send_modal(TextModal("🔍 Find a person", "Name, @username or user ID", go, max_length=60))
 
     async def h_olm(self, i, x, v):
         self.need_owner(i.user)

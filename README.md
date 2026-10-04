@@ -62,14 +62,20 @@ docker compose down               # stop (data is kept)
 ```
 
 ## Updating
-Back up first (see below).
-- **Git:** `git pull`, then `docker compose up -d --build`.
-- **ZIP:**
-  1. Extract the new ZIP to a new folder and copy your `.env` into it.
-  2. In the old folder run `docker compose down`.
-  3. In the new folder run `docker compose up -d --build`.
+The bot tells the owner when a new version exists (🎛️ → Owner → **Updates**: installed and latest version, release notes). It never updates itself.
 
-Your configuration and data live in the Docker volume `virtual-room-bot_vrbot-data`, not in the code folder, so updates keep them. Database migrations run automatically.
+**Git installs (recommended):**
+```
+bash scripts/update.sh check      # see what's new
+bash scripts/update.sh apply      # backup → new release → rebuild → health check → automatic rollback on failure
+bash scripts/update.sh rollback   # back to the previous version (code + database backup)
+```
+Optional: keep `bash scripts/update.sh watch` running (e.g. in tmux or as a service) so the owner's **Update** button applies updates.
+The repository is private, so checks and downloads use **your own** Git access. For in-Discord notifications without the host check, set `UPDATE_REPO` and your own read-only `UPDATE_GITHUB_TOKEN` in `.env`.
+
+**ZIP installs:** get the new ZIP, extract it to a new folder, copy your `.env` into it, run `docker compose down` in the old folder and `docker compose up -d --build` in the new one. Keep the old folder until the new version runs (that's your rollback).
+
+Your configuration and data live in the Docker volume `virtual-room-bot_vrbot-data`, never in the code folder, so updates keep them. Database migrations run automatically and only add.
 
 ## Backup
 ```

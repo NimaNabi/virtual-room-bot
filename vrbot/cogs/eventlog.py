@@ -234,14 +234,47 @@ class EventLog(commands.Cog):
                           role=role, reason=entry.reason, details=details, source="audit_log", embed_color=0x9B59B6)
 
     # ---------------------------------------------------------- membership
+    async def member_identity(self, guild: discord.Guild, user) -> dict:
+        """Permanent identity record for join/leave/kick/ban. The user ID is the identity; names are context.
+        Captured from the cached member at event time; falls back to earlier events when the member wasn't cached."""
+        from ..db import LogQuery
+        from ..trust import current_tier, tier_role_ids
+        is_member = isinstance(user, discord.Member)
+        tr = tier_role_ids(self.bot.cfg)
+        key = current_tier([r.id for r in user.roles], tr) if is_member and tr else None
+        level = guild.get_role(tr[key]).name if key and guild.get_role(tr[key]) else None
+        out = {"user_id": user.id, "username": user.name, "global_name": getattr(user, "global_name", None),
+               "display_name": getattr(user, "display_name", None), "bot": user.bot,
+               "account_created": user.created_at.isoformat(),
+               "account_age_days": (utcnow() - user.created_at).days,
+               "joined_at": user.joined_at.isoformat() if is_member and user.joined_at else None,
+               "trust_level": level, "trust_key": key,
+               "roles": [r.name for r in user.roles[1:]] if is_member else None, "member_cached": is_member}
+        try:
+            rows = await self.bot.db.query_events(LogQuery(guild_id=guild.id, target_id=user.id, limit=200,
+                                                           types=["member_join", "invite_used", "guest_join", "tier_change"]))
+        except Exception:  # noqa: BLE001
+            rows = []
+        for r in rows:  # newest first
+            if r["type"] in ("invite_used", "guest_join") and "sponsor_name" not in out and r.get("actor_name"):
+                out.update(sponsor_name=r["actor_name"], sponsor_id=r.get("actor_id"),
+                           sponsor_confidence=r.get("actor_confidence"), via="guest invite" if r["type"] == "guest_join" else "invite")
+            if r["type"] == "member_join" and not out["joined_at"]:
+                out["joined_at"] = r["ts"]
+            if r["type"] == "tier_change" and not out["trust_level"]:
+                import json as _json
+                d = _json.loads(r.get("details") or "{}")
+                k = d.get("to")
+                role = guild.get_role(tr[k]) if tr and k in tr else None
+                out["trust_key"], out["trust_level"] = k, role.name if role else k
+        return out
+
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         if not self.is_target(member.guild):
             return
-        age_days = (utcnow() - member.created_at).days
         await self.record("member_join", guild=member.guild, target=member, confidence="self",
-                          details={"account_created": member.created_at.isoformat(), "account_age_days": age_days,
-                                   "bot": member.bot})
+                          details=await self.member_identity(member.guild, member))
 
     @commands.Cog.listener()
     async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent):
@@ -250,20 +283,21 @@ class EventLog(commands.Cog):
             return
         user = payload.user
         now = utcnow()
-        roles = [r.name for r in getattr(user, "roles", [])[1:]] if isinstance(user, discord.Member) else None
-        joined = user.joined_at.isoformat() if isinstance(user, discord.Member) and user.joined_at else None
+        details = await self.member_identity(guild, user)   # captured BEFORE anything else (member state is gone soon)
         await asyncio.sleep(CORRELATE_DELAY + 0.5)
         ban_t = self.recent_bans.get(user.id)
         if ban_t and (utcnow() - ban_t).total_seconds() < 30:
             return  # logged as member_ban
         rec = await self.audit_lookup(guild, {"kick"}, user.id, now)
-        details = {"roles": roles, "joined_at": joined}
         if rec:
             await self.record("member_kick", guild=guild, target=user, actor_id=rec.executor_id,
                               actor_name=rec.executor_name or self._name(guild, rec.executor_id),
                               confidence="confirmed", reason=rec.reason, details=details, source="audit_log",
                               embed_color=0xE67E22)
         else:
+            # never invent causality: without audit-log access we cannot tell a leave from a removal
+            details["cause"] = ("no kick or ban recorded" if guild.me.guild_permissions.view_audit_log
+                                else "removal cause unknown (no audit-log access)")
             await self.record("member_leave", guild=guild, target=user, confidence="self", details=details)
 
     @commands.Cog.listener()
@@ -271,8 +305,9 @@ class EventLog(commands.Cog):
         if not self.is_target(guild):
             return
         self.recent_bans[user.id] = utcnow()
+        ident = await self.member_identity(guild, user)
         rec = await self.audit_lookup(guild, {"ban"}, user.id, utcnow())
-        await self.record("member_ban", guild=guild, target=user,
+        await self.record("member_ban", guild=guild, target=user, details=ident,
                           actor_id=rec.executor_id if rec else None,
                           actor_name=(rec.executor_name or self._name(guild, rec.executor_id)) if rec else None,
                           confidence="confirmed" if rec else "unknown", reason=rec.reason if rec else None,

@@ -1,0 +1,14 @@
+{
+ "version": "1.0.1",
+ "date": "2026-10-04",
+ "breaking": false,
+ "min_config_schema": 1,
+ "migrations": "automatic (additive)",
+ "notes": [
+  "Member join/leave/kick/ban logs now record a permanent identity: user ID, @username, global name, account creation date, join date, last trust level, roles and inviter",
+  "the removal cause is only stated when the audit log proves it",
+  "Owner \u2192 Logs \u2192 Find person searches by name, @username or user ID (also after someone left)",
+  "Owner \u2192 Updates shows installed/latest version and release notes",
+  "host-side scripts/update.sh (check / apply with backup, health check and automatic rollback / rollback / watch)"
+ ]
+}

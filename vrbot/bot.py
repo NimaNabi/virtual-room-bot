@@ -52,6 +52,7 @@ MODULES = [
     "vrbot.cogs.music",
     "vrbot.cogs.ai",
     "vrbot.cogs.setup",
+    "vrbot.cogs.updates",
 ]
 
 

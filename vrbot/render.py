@@ -103,6 +103,41 @@ def _dur(s: int) -> str:
     return (f"{h}h " if h else "") + f"{m}m {sec}s"
 
 
+def _date(iso_ts: str | None, style: str = "D") -> str | None:
+    from datetime import datetime
+    try:
+        return f"<t:{int(datetime.fromisoformat(iso_ts).timestamp())}:{style}>" if iso_ts else None
+    except ValueError:
+        return None
+
+
+def member_identity_line(ts: str, t: str, e: dict, det: dict) -> str:
+    """Join/leave/kick/ban: the user ID is the permanent identity (mentions stop resolving once someone leaves)."""
+    head = {"member_join": "📥 Member joined", "member_leave": "📤 Member left", "member_kick": "👢 Member kicked",
+            "member_ban": "🔨 Member banned"}[t]
+    uid = det.get("user_id") or e.get("target_id")
+    name = det.get("display_name") or e.get("target_name") or "—"
+    parts = [ts if ts.startswith("<t:") else f"`{ts}`", f"{head}: **{name}**"]
+    if det.get("username"):
+        parts.append(f"@{det['username']}")
+    parts.append(f"· ID `{uid}`")
+    if det.get("trust_level"):
+        parts.append(f"· level **{det['trust_level']}**")
+    if det.get("joined_at") and t != "member_join":
+        parts.append(f"· joined {_date(det['joined_at']) or det['joined_at'][:10]}")
+    if det.get("account_created"):
+        parts.append(f"· account created {_date(det['account_created']) or det['account_created'][:10]}")
+    if det.get("sponsor_name"):
+        parts.append(f"· joined via **{det['sponsor_name']}**" + (" (guest invite)" if det.get("via") == "guest invite" else ""))
+    if t in ("member_kick", "member_ban"):
+        parts.append(f"· by **{e['actor_name']}**" if e.get("actor_name") else "· actor unknown")
+    elif t == "member_leave" and det.get("cause"):
+        parts.append(f"· {det['cause']}")
+    if e.get("reason"):
+        parts.append(f"— {e['reason'][:120]}")
+    return " ".join(parts)
+
+
 def owner_log_line(e: dict) -> str:
     """Compact, readable one-liner for the owner-only log channels."""
     from datetime import datetime
@@ -117,6 +152,8 @@ def owner_log_line(e: dict) -> str:
     t = e["type"]
     who = e.get("target_name") or "—"
     what = OWNER_ICONS.get(t, t.replace("_", " "))
+    if t in ("member_join", "member_leave", "member_kick", "member_ban") and (det.get("user_id") or e.get("target_id")):
+        return member_identity_line(ts, t, e, det)
     parts = [f"`{ts}`" if not ts.startswith("<t:") else ts, f"👤 **{who}**", what]
     if t in ("voice_move", "voice_disconnect", "voice_afk", "voice_bot_move") and det.get("from_name"):
         parts.append(f"**{det.get('from_name')}** → **{det.get('to_name') or 'disconnected'}**")
