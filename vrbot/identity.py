@@ -26,22 +26,18 @@ def snapshot(user: Any) -> dict | None:
     return out
 
 
-def profile_url(uid: int) -> str:
-    return f"https://discord.com/users/{uid}"
-
-
 def label(ident: dict | None, fallback_name: str | None = None, fallback_id: int | None = None, *, bold: bool = False) -> str:
-    """ONE clean clickable identity: '@Name' linking to the user's profile by immutable ID.
+    """ONE compact clickable identity: the native Discord mention <@ID>, shown by Discord as a clickable @Name.
 
-    The readable name is presentation; the link target is the Discord user ID (works after renames and after the
-    person left, unlike a <@mention>). The raw ID stays in the structured event (Find person shows it on demand)."""
+    No URL, no preview card. Log messages are always sent with AllowedMentions.none(), so nobody is pinged.
+    Without a known ID (rare), the name is shown as plain '@Name'. The raw ID stays in the structured event
+    (Find person shows it on demand)."""
     ident = ident or {}
     uid = ident.get("id") or fallback_id
+    if uid:
+        return f"<@{int(uid)}>"
     name = (ident.get("display_name") or fallback_name or ident.get("username") or "unknown")
-    name = name.replace("[", "(").replace("]", ")").replace("\n", " ")[:64]
-    text = f"@{name}" + (" (bot)" if ident.get("bot") else "")
-    # <url> inside the masked link = Discord never unfurls it: no profile card, no preview, anywhere it's posted
-    return f"[{text}](<{profile_url(uid)}>)" if uid else text
+    return "@" + name.replace("\n", " ")[:64]
 
 
 class IdentityCache:

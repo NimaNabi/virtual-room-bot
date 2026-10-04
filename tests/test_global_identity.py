@@ -27,9 +27,9 @@ def test_every_event_type_shows_target_and_actor_ids(etype):
            "target_name": "Target B", "actor_id": A, "actor_name": "Actor A", "actor_confidence": "confirmed",
            "details": json.dumps({"target_identity": SNAP_B, "actor_identity": SNAP_A, "user_id": B})}
     line = owner_log_line(row)
-    assert f"discord.com/users/{B}" in line, (etype, line)
+    assert f"<@{B}>" in line, (etype, line)
     if etype not in ("member_join", "member_leave"):  # self-events have no separate actor
-        assert f"discord.com/users/{A}" in line, (etype, line)
+        assert f"<@{A}>" in line, (etype, line)
 
 
 @pytest.mark.parametrize("etype", ["voice_join", "voice_move", "role_add", "timeout_add", "tier_change", "nick_change",
@@ -37,13 +37,13 @@ def test_every_event_type_shows_target_and_actor_ids(etype):
 def test_person_events_without_snapshot_still_show_the_raw_id(etype):
     line = owner_log_line({"ts": "2026-10-04T10:00:00+00:00", "type": etype, "category": "x", "target_id": B,
                            "target_name": "Target B", "details": None})
-    assert f"discord.com/users/{B}" in line, (etype, line)
+    assert f"<@{B}>" in line, (etype, line)
 
 
 def test_label_always_has_id_and_username():
-    assert label(SNAP_B) == "[@Target B](<https://discord.com/users/222222222222222222>)"   # <> = never unfurled
-    assert label(None, "OldName", B) == "[@OldName](<https://discord.com/users/222222222222222222>)"
-    assert "`" not in label(SNAP_B) and "@target_b" not in label(SNAP_B)   # one clean identity, no ID/username clutter
+    assert label(SNAP_B) == "<@222222222222222222>"   # native mention: clickable @Name, no URL, no card
+    assert label(None, "OldName", B) == "<@222222222222222222>" and label(None, "OldName") == "@OldName"
+    assert "http" not in label(SNAP_B) and "@target_b" not in label(SNAP_B)   # one clean identity, no URL
 
 
 async def test_add_event_attaches_structured_snapshots(db):
@@ -84,7 +84,7 @@ def test_logs_view_never_crashes_and_shows_ids(etype):
            "target_name": "Target B", "actor_id": A, "actor_name": "Actor A", "actor_confidence": "confirmed",
            "details": json.dumps({"target_identity": SNAP_B, "actor_identity": SNAP_A})}
     line = event_line(row)
-    assert f"discord.com/users/{B}" in line and f"discord.com/users/{A}" in line, (etype, line)
+    assert f"<@{B}>" in line and f"<@{A}>" in line and "discord.com" not in line, (etype, line)
 
 
 def test_trust_and_temporary_access_details_are_rendered():

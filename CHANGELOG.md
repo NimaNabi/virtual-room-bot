@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5 — 2026-10-04
+- Every person in every log is a native Discord mention: one clickable @Name that opens the profile, with no link, preview card or raw ID, and nobody is ever pinged by a log entry
+- the user ID stays stored and searchable in Owner → Logs → Find person
+
 ## 1.0.4 — 2026-10-04
 - Clickable identities in logs never expand into profile cards or link previews: each person stays one compact @Name that opens their Discord profile
 
