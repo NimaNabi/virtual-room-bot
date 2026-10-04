@@ -30,7 +30,7 @@ def test_leave_line_has_permanent_identity_and_honest_cause():
            "joined_at": "2025-01-02T00:00:00+00:00", "account_created": "2020-05-06T00:00:00+00:00",
            "sponsor_name": "TestUserB", "via": "guest invite", "cause": "no kick or ban recorded"}
     line = owner_log_line(_ev("member_leave", det))
-    for part in ("Member left", f"[@TestUserA](https://discord.com/users/{UID})", "level **Member**", "joined <t:",
+    for part in ("Member left", f"[@TestUserA](<https://discord.com/users/{UID}>)", "level **Member**", "joined <t:",
                  "account created <t:", "joined via @TestUserB (guest invite)", "no kick or ban recorded"):
         assert part in line, part
 

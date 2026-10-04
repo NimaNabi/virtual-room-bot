@@ -1,13 +1,10 @@
 {
- "version": "1.0.3",
+ "version": "1.0.4",
  "date": "2026-10-04",
  "breaking": false,
  "min_config_schema": 1,
  "migrations": "automatic (additive)",
  "notes": [
-  "Logs show each person as one clean clickable @Name (actor and target) that opens their Discord profile via the immutable user ID, instead of name + @username + raw ID",
-  "raw IDs stay stored and are shown on demand in Owner \u2192 Logs \u2192 Find person",
-  "the inviter in join/leave lines is clickable too",
-  "link previews are suppressed in the owner log channels"
+  "Clickable identities in logs never expand into profile cards or link previews: each person stays one compact @Name that opens their Discord profile"
  ]
 }

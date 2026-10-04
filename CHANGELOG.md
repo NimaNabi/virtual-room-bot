@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.4 — 2026-10-04
+- Clickable identities in logs never expand into profile cards or link previews: each person stays one compact @Name that opens their Discord profile
+
 ## 1.0.3 — 2026-10-04
 - Logs show each person as one clean clickable @Name (actor and target) that opens their Discord profile via the immutable user ID, instead of name + @username + raw ID
 - raw IDs stay stored and are shown on demand in Owner → Logs → Find person

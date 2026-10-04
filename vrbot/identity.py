@@ -40,7 +40,8 @@ def label(ident: dict | None, fallback_name: str | None = None, fallback_id: int
     name = (ident.get("display_name") or fallback_name or ident.get("username") or "unknown")
     name = name.replace("[", "(").replace("]", ")").replace("\n", " ")[:64]
     text = f"@{name}" + (" (bot)" if ident.get("bot") else "")
-    return f"[{text}]({profile_url(uid)})" if uid else text
+    # <url> inside the masked link = Discord never unfurls it: no profile card, no preview, anywhere it's posted
+    return f"[{text}](<{profile_url(uid)}>)" if uid else text
 
 
 class IdentityCache:

@@ -41,8 +41,8 @@ def test_person_events_without_snapshot_still_show_the_raw_id(etype):
 
 
 def test_label_always_has_id_and_username():
-    assert label(SNAP_B) == "[@Target B](https://discord.com/users/222222222222222222)"
-    assert label(None, "OldName", B) == "[@OldName](https://discord.com/users/222222222222222222)"
+    assert label(SNAP_B) == "[@Target B](<https://discord.com/users/222222222222222222>)"   # <> = never unfurled
+    assert label(None, "OldName", B) == "[@OldName](<https://discord.com/users/222222222222222222>)"
     assert "`" not in label(SNAP_B) and "@target_b" not in label(SNAP_B)   # one clean identity, no ID/username clutter
 
 
