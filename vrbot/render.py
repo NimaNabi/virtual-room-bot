@@ -140,12 +140,10 @@ def member_identity_line(ts: str, t: str, e: dict, det: dict) -> str:
     """Join/leave/kick/ban: the user ID is the permanent identity (mentions stop resolving once someone leaves)."""
     head = {"member_join": "📥 Member joined", "member_leave": "📤 Member left", "member_kick": "👢 Member kicked",
             "member_ban": "🔨 Member banned"}[t]
+    from .identity import label as _lab
     uid = det.get("user_id") or e.get("target_id")
-    name = det.get("display_name") or e.get("target_name") or "—"
-    parts = [ts if ts.startswith("<t:") else f"`{ts}`", f"{head}: **{name}**"]
-    if det.get("username"):
-        parts.append(f"@{det['username']}")
-    parts.append(f"· ID `{uid}`")
+    ident = det.get("target_identity") or {"id": uid, "display_name": det.get("display_name"), "username": det.get("username")}
+    parts = [ts if ts.startswith("<t:") else f"`{ts}`", f"{head}: {_lab(ident, e.get('target_name'), uid)}"]
     if det.get("trust_level"):
         parts.append(f"· level **{det['trust_level']}**")
     if det.get("joined_at") and t != "member_join":
@@ -153,7 +151,8 @@ def member_identity_line(ts: str, t: str, e: dict, det: dict) -> str:
     if det.get("account_created"):
         parts.append(f"· account created {_date(det['account_created']) or det['account_created'][:10]}")
     if det.get("sponsor_name"):
-        parts.append(f"· joined via **{det['sponsor_name']}**" + (" (guest invite)" if det.get("via") == "guest invite" else ""))
+        parts.append(f"· joined via {_lab({'id': det.get('sponsor_id'), 'display_name': det['sponsor_name']})}"
+                     + (" (guest invite)" if det.get("via") == "guest invite" else ""))
     if t in ("member_kick", "member_ban"):
         from .identity import label as _l
         parts.append(f"· by {_l(det.get('actor_identity'), e.get('actor_name'), e.get('actor_id'))}"

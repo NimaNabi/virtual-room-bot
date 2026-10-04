@@ -26,21 +26,21 @@ def snapshot(user: Any) -> dict | None:
     return out
 
 
-def label(ident: dict | None, fallback_name: str | None = None, fallback_id: int | None = None, *, bold: bool = True) -> str:
-    """'Name (@username) · `ID`' — the ID is always present when known; names are context."""
+def profile_url(uid: int) -> str:
+    return f"https://discord.com/users/{uid}"
+
+
+def label(ident: dict | None, fallback_name: str | None = None, fallback_id: int | None = None, *, bold: bool = False) -> str:
+    """ONE clean clickable identity: '@Name' linking to the user's profile by immutable ID.
+
+    The readable name is presentation; the link target is the Discord user ID (works after renames and after the
+    person left, unlike a <@mention>). The raw ID stays in the structured event (Find person shows it on demand)."""
     ident = ident or {}
     uid = ident.get("id") or fallback_id
-    name = ident.get("display_name") or fallback_name or ident.get("username") or "unknown"
-    name = f"**{name}**" if bold else name
-    user = ident.get("username")
-    parts = [name]
-    if user:
-        parts.append(f"(@{user})")
-    if ident.get("bot"):
-        parts.append("[bot]")
-    if uid:
-        parts.append(f"`{uid}`")
-    return " ".join(parts)
+    name = (ident.get("display_name") or fallback_name or ident.get("username") or "unknown")
+    name = name.replace("[", "(").replace("]", ")").replace("\n", " ")[:64]
+    text = f"@{name}" + (" (bot)" if ident.get("bot") else "")
+    return f"[{text}]({profile_url(uid)})" if uid else text
 
 
 class IdentityCache:

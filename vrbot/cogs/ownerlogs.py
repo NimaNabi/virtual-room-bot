@@ -74,7 +74,8 @@ class OwnerLogs(commands.Cog):
             if not batch:  # a single very long line
                 batch = [q.pop(0)[:1900]]
             try:
-                await ch.send("\n".join(batch), allowed_mentions=discord.AllowedMentions.none(), silent=True)
+                await ch.send("\n".join(batch), allowed_mentions=discord.AllowedMentions.none(), silent=True,
+                              suppress_embeds=True)  # profile links stay links, no preview cards
                 self.sent += len(batch)
             except discord.HTTPException:
                 log.warning("owner log send failed", exc_info=True)

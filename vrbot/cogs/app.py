@@ -12,6 +12,7 @@ action is re-authorised server-side when it runs.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from datetime import datetime, timedelta, timezone
@@ -840,7 +841,19 @@ class ControlCenter(commands.Cog):
         rows = await self.bot.db.query_events(lq) if q else []
         emb = discord.Embed(title=f"🔍 {q or 'Find person'}", color=COLORS["INFO"],
                             description="\n".join(owner_log_line(r) for r in rows)[:3900] or "No matching events.")
-        emb.set_footer(text="Search by display name, @username or user ID")
+        # "view details": the raw IDs of the matched account(s), copyable — the only place IDs are spelled out
+        people, ql = {}, q.lower()
+        for r in rows:
+            det = json.loads(r.get("details") or "{}")
+            for idk, sk, nk in (("target_id", "target_identity", "target_name"), ("actor_id", "actor_identity", "actor_name")):
+                uid, snap = r.get(idk), det.get(sk) or {}
+                names = " ".join(str(x) for x in (snap.get("username"), snap.get("display_name"), r.get(nk)) if x).lower()
+                if uid and (str(uid) == q or (ql and ql in names)):
+                    people.setdefault(uid, snap.get("username") or r.get(nk))
+        if people:
+            emb.add_field(name="Account ID(s)", inline=False,
+                          value="\n".join(f"@{n or '?'} — `{u}`" for u, n in list(people.items())[:5]))
+        emb.set_footer(text="Search by display name, @username or user ID · names link to the profile")
         return emb, view(AppButton("olfind", "", label="Search again", emoji="🔍", row=0), back("owner_logs", row=0))
 
     async def s_owner_access(self, m):

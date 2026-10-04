@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 — 2026-10-04
+- Logs show each person as one clean clickable @Name (actor and target) that opens their Discord profile via the immutable user ID, instead of name + @username + raw ID
+- raw IDs stay stored and are shown on demand in Owner → Logs → Find person
+- the inviter in join/leave lines is clickable too
+- link previews are suppressed in the owner log channels
+
 ## 1.0.2 — 2026-10-04
 - Global identity standard: every person in every log (target and actor) is stored with a snapshot (user ID, @username, names) and every owner log line shows the immutable ID
 - Owner → Logs → Find person finds anyone by user ID or any past name or username (also after renames or leaving)
