@@ -469,6 +469,9 @@ class Setup(commands.Cog):
         await db.kv_set("baseline:ts", now_iso())
         await db.kv_set("baseline:snapshot", base)
         await db.kv_set("setup:done", {"plan": s.plan, "ts": time.time(), "by": actor.id})
+        await db.add_event(type="setup_applied", category="security", guild_id=g.id, actor_id=actor.id,
+                           actor_name=actor.display_name, actor_confidence="confirmed",
+                           details={"plan": s.plan, "created": created, "snapshot": snap, "baseline": base}, source="bot")
         return [f"**Layout:** {s.plan.title()} · snapshot before changes #{snap} · baseline #{base}",
                 f"**Created:** {len(created)} — " + (", ".join(created) or "nothing new"),
                 f"**Verified in Discord:** roles {'✅' if ok_roles else '⚠️'} · channels {'✅' if ok_chans else '⚠️'}",

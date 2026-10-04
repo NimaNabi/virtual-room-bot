@@ -15,6 +15,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 CATEGORY = {
+    "config_reloaded": "security", "update_requested": "security", "setup_applied": "security",
+    "voice_room_settings": "voice", "voice_room_trust": "voice", "voice_room_untrust": "voice", "voice_room_block": "voice",
+    "voice_room_unblock": "voice", "voice_room_invite": "voice", "voice_room_disconnect": "voice",
     "member_join": "membership", "member_leave": "membership", "member_kick": "moderation",
     "member_ban": "moderation", "member_unban": "moderation", "timeout_add": "moderation",
     "timeout_remove": "moderation", "nick_change": "membership", "role_add": "membership",

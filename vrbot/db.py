@@ -89,6 +89,7 @@ class Database:
         self.path = str(path)
         self.conn: aiosqlite.Connection | None = None
         self.event_hooks: list = []   # callables(row dict) — e.g. the owner-only log sink
+        self.identity_resolver = None  # callable(user_id) -> identity snapshot dict | None (see identity.py)
 
     async def open(self) -> None:
         if self.path != ":memory:":
@@ -134,6 +135,18 @@ class Database:
                         actor_confidence: str = "unknown", channel_id=None, channel_name=None,
                         role_id=None, role_name=None, reason=None, details: dict | None = None,
                         source: str = "gateway") -> int:
+        # global identity contract: every person in an event gets a structured snapshot (ID + names at that time)
+        if self.identity_resolver is not None:
+            details = dict(details or {})
+            for role_, uid in (("target_identity", target_id), ("actor_identity", actor_id)):
+                if uid and role_ not in details:
+                    try:
+                        ident = self.identity_resolver(int(uid))
+                    except (TypeError, ValueError):
+                        ident = None
+                    if ident:
+                        details[role_] = ident
+            details = details or None
         cur = await self.conn.execute(
             "INSERT INTO events (ts, guild_id, type, category, target_id, target_name, actor_id, actor_name,"
             " actor_confidence, channel_id, channel_name, role_id, role_name, reason, details, source)"

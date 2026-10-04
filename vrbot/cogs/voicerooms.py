@@ -94,9 +94,11 @@ def _member_action(action: str, label: str, emoji: str, row: int, style=discord.
 class RoomPanel(discord.ui.View):
     """One persistent control panel per room (fixed custom_ids survive restarts)."""
 
-    def __init__(self, room: discord.VoiceChannel | None = None):
+    def __init__(self, room: discord.VoiceChannel | None = None, guest_ok: bool = True):
         super().__init__(timeout=None)
         self.add_item(MemberPick())
+        if not guest_ok:  # the room OWNER can't sponsor guests: don't show a button that can only refuse
+            self.remove_item(self.b_guest)
         if room is not None:  # show the action that makes sense now (Lock ↔ Unlock, Hide ↔ Show)
             ev = room.overwrites_for(room.guild.default_role)
             self.b_lock.label, self.b_lock.emoji = ("Unlock", "🔓") if ev.connect is False else ("Lock", "🔒")
@@ -274,6 +276,11 @@ class VoiceRooms(commands.GroupCog, group_name="voice", group_description="Your 
                                     channel_id=room.id, channel_name=room.name, source="bot")
         return room
 
+    def guest_ok(self, room) -> bool:
+        owner = room.guild.get_member(self.rooms.get(room.id) or 0)
+        guests = self.bot.get_cog("Guests")
+        return bool(owner and guests and guests.sponsor_ok(owner))
+
     async def ask_close(self, interaction: discord.Interaction, ch):
         """Owner closes the room (everyone inside is disconnected). Confirmation first."""
         if not ch or ch.id not in self.rooms:
@@ -307,7 +314,7 @@ class VoiceRooms(commands.GroupCog, group_name="voice", group_description="Your 
 
     async def post_panel(self, room: discord.VoiceChannel, owner: discord.Member):
         try:
-            msg = await room.send(embed=self.panel_embed(room), view=RoomPanel(room), allowed_mentions=discord.AllowedMentions.none())
+            msg = await room.send(embed=self.panel_embed(room), view=RoomPanel(room, self.guest_ok(room)), allowed_mentions=discord.AllowedMentions.none())
             self.meta.setdefault(room.id, {"trusted": [], "blocked": []})["panel"] = msg.id
             await self._save()
         except discord.HTTPException:
@@ -320,7 +327,7 @@ class VoiceRooms(commands.GroupCog, group_name="voice", group_description="Your 
             return
         try:
             msg = room.get_partial_message(mid)
-            await msg.edit(embed=self.panel_embed(room), view=RoomPanel(room))
+            await msg.edit(embed=self.panel_embed(room), view=RoomPanel(room, self.guest_ok(room)))
         except discord.HTTPException:
             pass
 
@@ -376,6 +383,17 @@ class VoiceRooms(commands.GroupCog, group_name="voice", group_description="Your 
         reason = bot_reason(getattr(actor, "display_name", "the bot"), getattr(actor, "id", self.bot.user.id), f"room {action}")
         everyone = ch.guild.default_role
         msg = await self._do(ch, action, arg, actor, reason, everyone)
+        # every room action is owner evidence: who did what to whom, in which room
+        member = arg if isinstance(arg, discord.Member) else None
+        if action != "transfer":  # transfer logs its own event
+            await self.bot.db.add_event(
+                type=f"voice_room_{ {'permit': 'trust', 'reject': 'block'}.get(action, action)}" if member else "voice_room_settings",
+                category="voice", guild_id=ch.guild.id,
+                target_id=member.id if member else None, target_name=member.display_name if member else None,
+                actor_id=getattr(actor, "id", None), actor_name=getattr(actor, "display_name", None),
+                actor_confidence="confirmed", channel_id=ch.id, channel_name=ch.name,
+                details={"action": action, **({} if member else {"value": str(arg)[:60] if arg is not None else None})},
+                source="bot")
         await self.refresh_panel(ch)
         return msg
 

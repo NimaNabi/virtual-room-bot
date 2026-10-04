@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2 — 2026-10-04
+- Global identity standard: every person in every log (target and actor) is stored with a snapshot (user ID, @username, names) and every owner log line shows the immutable ID
+- Owner → Logs → Find person finds anyone by user ID or any past name or username (also after renames or leaving)
+- temporary-room actions (trust, untrust, block, unblock, invite, disconnect, settings), configuration reloads, update requests and setup runs are now logged with who did it
+- trust-level changes show old → new level, temporary access shows kind, duration and expiry
+- fix: /logs no longer fails on guest/invite events
+- the room panel shows Invite a friend only when the room owner may invite guests
+
 ## 1.0.1 — 2026-10-04
 - Member join/leave/kick/ban logs now record a permanent identity: user ID, @username, global name, account creation date, join date, last trust level, roles and inviter
 - the removal cause is only stated when the audit log proves it

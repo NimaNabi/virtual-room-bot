@@ -833,13 +833,13 @@ class ControlCenter(commands.Cog):
     async def s_owner_find(self, m, q: str = ""):
         """Find anyone who ever joined/left/was invited — by name, @username or user ID (works after they left)."""
         self.need_owner(m)
-        types = ["member_join", "member_leave", "member_kick", "member_ban", "invite_used", "guest_join", "nick_change"]
+        types = []  # every event type: the person may be target OR actor; snapshots make renamed/departed users findable
         q = q.strip().lstrip("@")
-        lq = LogQuery(guild_id=self.g.id, types=types, limit=15,
-                      **({"target_id": int(q)} if q.isdigit() else {"text": q}))
+        lq = LogQuery(guild_id=self.g.id, types=types, limit=20,
+                      **({"user_id": int(q)} if q.isdigit() else {"text": q}))
         rows = await self.bot.db.query_events(lq) if q else []
         emb = discord.Embed(title=f"🔍 {q or 'Find person'}", color=COLORS["INFO"],
-                            description="\n".join(owner_log_line(r) for r in rows)[:3900] or "No matching member events.")
+                            description="\n".join(owner_log_line(r) for r in rows)[:3900] or "No matching events.")
         emb.set_footer(text="Search by display name, @username or user ID")
         return emb, view(AppButton("olfind", "", label="Search again", emoji="🔍", row=0), back("owner_logs", row=0))
 
@@ -1048,6 +1048,9 @@ class ControlCenter(commands.Cog):
         if not up or not x:
             raise Toast("No update to apply.")
         up.request(x, i.user.id)
+        await self.bot.db.add_event(type="update_requested", category="security", guild_id=self.g.id,
+                                    actor_id=i.user.id, actor_name=i.user.display_name, actor_confidence="confirmed",
+                                    details={"version": x}, source="bot")
         await self.show(i, "owner_updates", note=f"⏳ Update to **{x}** requested. It's applied by the host updater "
                                                  "(`bash scripts/update.sh apply`, or automatically if `update.sh watch` runs).")
 

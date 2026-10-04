@@ -72,6 +72,19 @@ class ServerBot(commands.Bot):
         self.settings = settings
         self.cfg: ServerConfig = load_server_config(settings.config_path, settings)
         self.db = Database(settings.data_dir / "vrbot.db")
+        from .identity import IdentityCache, snapshot
+        self.identities = IdentityCache()
+
+        def _resolve(uid: int):
+            """Identity snapshot for a user ID: live member/user cache first, else the last identity seen."""
+            g = self.guild
+            u = (g.get_member(uid) if g else None) or self.get_user(uid)
+            if u is not None:
+                ident = snapshot(u)
+                self.identities.remember(ident)
+                return ident
+            return self.identities.get(uid)
+        self.db.identity_resolver = _resolve
         self.audit_buffer = AuditBuffer()
         self.voice_attr = VoiceAttributor()
         self.module_status: dict[str, str] = {}

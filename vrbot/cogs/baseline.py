@@ -161,6 +161,9 @@ class Baseline(commands.GroupCog, group_name="baseline", group_description="Owne
             cfg = self.bot.reload_config()
         except Exception as e:  # noqa: BLE001
             raise app_commands.CheckFailure(f"Config invalid, kept the old one: {e}") from e
+        await self.bot.db.add_event(type="config_reloaded", category="security", guild_id=interaction.guild_id,
+                                    actor_id=interaction.user.id, actor_name=interaction.user.display_name,
+                                    actor_confidence="confirmed", source="bot")
         await interaction.response.send_message(
             f"✅ Reloaded: {len(cfg.baseline.trust_levels)} trust levels, {len(cfg.baseline.channels)} channel rules, "
             f"auto-heal {'ON' if cfg.autoheal.enabled else 'off'}.", ephemeral=True)

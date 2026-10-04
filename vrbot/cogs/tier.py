@@ -107,7 +107,9 @@ class Tier(commands.GroupCog, group_name="tier", group_description="Owner: trust
         await self.bot.db.add_event(type="tier_change", category="security", guild_id=g.id, target_id=member.id,
                                     target_name=member.display_name, actor_id=getattr(actor, "id", None),
                                     actor_name=getattr(actor, "display_name", "the bot"), actor_confidence="confirmed",
-                                    reason=why, details={"from": before, "to": target, "verified": ok, "held_after": held},
+                                    reason=why, details={"from": before, "to": target, "verified": ok, "held_after": held,
+                                             "from_name": g.get_role(roles[before]).name if before and g.get_role(roles[before]) else None,
+                                             "to_name": g.get_role(roles[target]).name if g.get_role(roles[target]) else None},
                                     source="bot")
         return (f"✅ {LABEL.get(before, 'none')} → **{LABEL[target]}** (verified in Discord)" if ok
                 else f"⚠️ Change not reflected as expected: holds {held}")
