@@ -1,4 +1,4 @@
-"""Update notifications: version logic, no network without the owner's own token, requests for the host updater."""
+"""Update notifications: version logic, no network unless UPDATE_REPO is set, requests for the host updater."""
 import json
 
 from vrbot.cogs.updates import Updates, is_newer, kind_of, parse_version
@@ -15,8 +15,9 @@ class _Bot:
     pass
 
 
-async def test_no_network_without_owner_token(monkeypatch, tmp_path):
-    monkeypatch.delenv("UPDATE_GITHUB_TOKEN", raising=False)
+async def test_no_network_without_update_repo(monkeypatch, tmp_path):
+    monkeypatch.delenv("UPDATE_REPO", raising=False)
+    monkeypatch.setenv("UPDATE_GITHUB_TOKEN", "unused")
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     assert await Updates(_Bot()).check_github() is None
 

@@ -3,7 +3,8 @@
 The running bot never replaces its own code. It only:
   * reads the installed version (VERSION) and the host updater's state (/data/update-state.json);
   * learns the latest version from the host updater (`scripts/update.sh check` writes /data/update-check.json) or,
-    if the owner configured their OWN read-only token (UPDATE_REPO + UPDATE_GITHUB_TOKEN), from the GitHub API;
+    if the owner set UPDATE_REPO (owner/name of the public repository; an optional UPDATE_GITHUB_TOKEN is only
+    needed for a private fork), from the public GitHub API;
   * tells the owner once per new version (owner-only alert channel) and shows release notes;
   * records an update request (/data/update-request.json) that the HOST updater applies with backup, health check
     and rollback (`scripts/update.sh apply` or `scripts/update.sh watch`).
@@ -85,12 +86,15 @@ class Updates(commands.Cog):
         return self.state().get("install") or "unknown (run scripts/update.sh check on the host)"
 
     async def check_github(self) -> dict | None:
-        """Only with the owner's OWN token (private repositories need authorization). Never a built-in credential."""
-        repo, token = os.environ.get("UPDATE_REPO"), os.environ.get("UPDATE_GITHUB_TOKEN")
-        if not repo or not token:
+        """Only when the owner set UPDATE_REPO. Public repositories need no credential; a private fork can use the
+        owner's OWN read-only UPDATE_GITHUB_TOKEN. Never a built-in credential."""
+        repo, token = os.environ.get("UPDATE_REPO", "").strip(), os.environ.get("UPDATE_GITHUB_TOKEN", "").strip()
+        if not repo:
             return None
         import httpx
-        h = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+        h = {"Accept": "application/vnd.github+json"}
+        if token:
+            h["Authorization"] = f"Bearer {token}"
         async with httpx.AsyncClient(timeout=20) as c:
             r = await c.get(f"https://api.github.com/repos/{repo}/tags", headers=h)
             r.raise_for_status()

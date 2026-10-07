@@ -2,6 +2,10 @@
 
 You are configuring a fresh installation of this Discord bot for the current user.
 
+## Getting the code
+If this folder is not yet a checkout, run `git clone https://github.com/NimaNabi/virtual-room-bot.git` (or use the
+release ZIP). Prefer a Git checkout: it makes `scripts/update.sh` updates and rollbacks possible.
+
 ## Rules
 - Inspect the local machine and this project before changing anything.
 - Set up every non-secret dependency you can safely configure yourself.
@@ -24,6 +28,8 @@ You are configuring a fresh installation of this Discord bot for the current use
    - If not, leave `AI_ENABLED=false`.
    - If yes, they supply an OpenAI-compatible `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL`.
    - Set `GUILD_ID` only if the bot will be in more than one server.
+   - Ask whether they want daily update notifications; if yes set `UPDATE_REPO=NimaNabi/virtual-room-bot` (no token).
+   - Remind them: the bot is online only while this computer is on and connected.
 6. **Start.** Run `docker compose up -d --build`. Wait until `docker compose ps` shows the bot (and lavalink, if music is on) running or healthy. Read `docker compose logs bot` and fix configuration errors. Migrations run automatically.
 7. **Invite.** Run `docker compose exec bot python -m vrbot.cli invite` and give the human the printed link. They pick their server, then drag the bot's role above the roles it should manage (Server Settings → Roles).
 8. **Configure the server.** The human runs **/setup** in Discord (server owner only).

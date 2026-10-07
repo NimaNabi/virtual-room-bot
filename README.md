@@ -12,16 +12,28 @@ A self-hosted, configurable Discord bot with a tap-first menu (🎛️ Control C
 
 Everything runs on **your** machine: the bot, its SQLite database and a local Lavalink music node. The bot only talks to Discord, the music or radio sources you play, and an AI API if you configure one.
 
+## Before you start: where the bot runs
+Virtual Room Bot is **self-hosted**: it runs on a computer you control (your PC, a home server or a VPS), not on
+Discord's servers. While that computer is on and online, the bot is online. A PC is perfectly fine for trying it and
+for everyday use; a VPS or an always-on machine is only needed if you want it online 24/7.
+
 ## Requirements
-- Docker with Docker Compose (Docker Desktop on Windows/macOS, or Docker Engine on Linux).
+- **Docker Desktop** (Windows 10/11 or macOS) or Docker Engine with Compose (Linux). Free: https://www.docker.com/products/docker-desktop/
+- **Git** (optional but recommended: it makes updates one command). https://git-scm.com/downloads
 - A Discord account that owns the server you want to use.
 - About 1 GB of free RAM.
 
+## Quick start
+```
+git clone https://github.com/NimaNabi/virtual-room-bot.git
+cd virtual-room-bot
+```
+(Or download the ZIP from the **Releases** page and extract it.) Then follow the steps below, or let an AI agent do it.
+
 ## Easiest install: with an AI coding agent
-1. Clone this repository or extract the ZIP.
-2. Open the folder in Claude Code, Codex or a similar coding agent.
-3. Say: **"Read SETUP_WITH_AI.md and configure this bot for my Discord server."**
-4. Do the few steps it asks of you: create the Discord application, provide the token, invite the bot, run `/setup`.
+1. Open the folder in Claude Code, Codex or a similar coding agent.
+2. Say: **"Set this Discord bot up for me using SETUP_WITH_AI.md."**
+3. Do the few steps it asks of you: create the Discord application, provide the token, invite the bot, run `/setup`.
 
 ## Manual install (Docker)
 1. **Create the bot.**
@@ -71,9 +83,9 @@ bash scripts/update.sh apply      # backup → new release → rebuild → healt
 bash scripts/update.sh rollback   # back to the previous version (code + database backup)
 ```
 Optional: keep `bash scripts/update.sh watch` running (e.g. in tmux or as a service) so the owner's **Update** button applies updates.
-The repository is private, so checks and downloads use **your own** Git access. For in-Discord notifications without the host check, set `UPDATE_REPO` and your own read-only `UPDATE_GITHUB_TOKEN` in `.env`.
+The repository is public, so checks and downloads need no account or token. For daily in-Discord notifications without the host check, set `UPDATE_REPO=NimaNabi/virtual-room-bot` in `.env`. Only stable releases (tags) are offered, never unreleased commits.
 
-**ZIP installs:** get the new ZIP, extract it to a new folder, copy your `.env` into it, run `docker compose down` in the old folder and `docker compose up -d --build` in the new one. Keep the old folder until the new version runs (that's your rollback).
+**ZIP installs:** get the new ZIP from the **Releases** page, extract it to a new folder, copy your `.env` into it, run `docker compose down` in the old folder and `docker compose up -d --build` in the new one. Keep the old folder until the new version runs (that's your rollback).
 
 Your configuration and data live in the Docker volume `virtual-room-bot_vrbot-data`, never in the code folder, so updates keep them. Database migrations run automatically and only add.
 
@@ -98,5 +110,16 @@ docker run --rm -v virtual-room-bot_vrbot-data:/data -v "$PWD":/out alpine tar c
 2. Run `docker compose down -v`. This deletes the data volume, so back it up first if you want to keep it.
 3. Optionally delete what `/setup` created; its report lists the roles and channels. The bot never deletes your messages.
 
-## Notices
-See `NOTICE.md` and `docs/THIRD_PARTY.md`.
+## Security and privacy
+- Your data (database, logs, backups, configuration) stays on your machine, in the Docker volume.
+- The bot contacts only Discord, the music/radio sources you play, GitHub's public API if you set `UPDATE_REPO`,
+  and an AI API if you configure one. No telemetry.
+- Secrets (bot token, `LAVALINK_PASSWORD`, AI keys) live only in `.env`, which is never committed.
+- Report vulnerabilities privately: see [SECURITY.md](SECURITY.md).
+
+## For developers
+[ARCHITECTURE.md](ARCHITECTURE.md) explains the code layout; [CONTRIBUTING.md](CONTRIBUTING.md) explains local
+development, tests and pull requests.
+
+## License
+[MIT](LICENSE): use, modify and share it freely. Third-party components: `docs/THIRD_PARTY.md`. See also `NOTICE.md`.
