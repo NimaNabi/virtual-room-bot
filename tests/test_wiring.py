@@ -44,7 +44,7 @@ def test_discord_http_methods_used_for_verification_exist():
 
 
 def test_intents_are_least_privilege(tmp_path):
-    s = Settings(token=None, guild_id=None, owner_ids=[], data_dir=tmp_path, config_path=Path("x.yaml"),
+    s = Settings(token=None, guild_id=None, owner_ids=[], data_dir=tmp_path, config_path=tmp_path / "x.yaml",
                  log_level="INFO", lavalink_uri=None, lavalink_password=None, ai_base_url=None, ai_api_key=None,
                  ai_model="default", ai_fallback_models=[], message_content_intent=False)
     i = ServerBot(s).intents

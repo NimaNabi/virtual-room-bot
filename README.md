@@ -1,144 +1,115 @@
 # Virtual Room Bot
 
-A self-hosted, configurable Discord bot with a tap-first menu (🎛️ Control Center) inside Discord.
+A free, self-hosted Discord bot for friend groups and small communities. Everything is done with buttons in a private
+**🎛️ Control Center** inside Discord: music, your own voice room, inviting friends, and owner tools that keep the
+server private and safe.
 
-- 🎵 **Music.** Quick Play, search, queue, player controls, internet radio and 24/7 mode, favourites, recent and popular tracks.
-- 🔊 **Temporary voice rooms.** Join **➕ Create Room** to get your own room with a control panel (lock, hide, invite, trust, block, transfer).
-- 🧭 **Trust levels.** Three levels decide who sees which private areas. You choose their names and colours, and each member holds exactly one level.
-- 🎟️ **Guest invites.** Chosen levels can bring friends in with one-time invites. New members get the default level.
-- 🔑 **Temporary access.** Temporary moderator or admin access always expires.
-- 🛡️ **Owner tools.** Private logs (voice, joins, server changes) with *Find person* (works after renames and departures), a privacy and permission doctor, Guardian alerts, snapshots and optional auto-heal. Permission changes are shown in plain words ("✅ Timeout Members — now allowed").
-- 🩺 **System health.** Owner → System shows uptime, the last downtime ("offline for 47 min, from → to, likely reason"), nightly local database backups with **Backup now**, and the state of every module.
-- 🚫 **Optional AutoMod.** Blocked words (with `*` wildcards, Unicode- and Arabic-script-aware) and invite-link filtering, configured with buttons. Off by default.
-- 🎮 **Social.** Tonight's plan and random teams.
+> **Self-hosted** means it runs on a computer you control (your Windows PC, a home server or a VPS) — not on
+> Discord's servers. While that computer is on and online, the bot is online.
 
-Everything runs on **your** machine: the bot, its SQLite database and a local Lavalink music node. The bot only talks to Discord, the music or radio sources you play, and an AI API if you configure one.
+## What it does
+**For everyone**
+- 🎛️ **Control Center** — a tap-first, app-like menu (Back/Home, works on phones); only you see your menu.
+- 🎵 **Music & radio** — Quick Play, search, queue, player controls, internet radio and 24/7 mode, favourites, recent and popular tracks.
+- 🔊 **Your own voice room** — join **➕ Create Room**: lock/unlock, hide/show, rename, user limit, invite, trust/block, hand over ownership; empty rooms delete themselves.
+- 🎟️ **Bring a friend** — one-time guest invites, sponsored by trusted members.
+- 🎮 **Social** — Tonight's plan and random teams.
 
-## Before you start: where the bot runs
-Virtual Room Bot is **self-hosted**: it runs on a computer you control (your PC, a home server or a VPS), not on
-Discord's servers. While that computer is on and online, the bot is online. A PC is perfectly fine for trying it and
-for everyday use; a VPS or an always-on machine is only needed if you want it online 24/7.
+**For the owner**
+- 🧭 **Trust levels & temporary access** — three levels decide who sees which private areas; temporary moderator/admin access always expires.
+- 📜 **Structured logs** — voice, members, moderation and server changes in owner-only channels, with clickable Discord identities (no pings), **Find person** (by name or ID, works after renames and departures, shows roles at leave), readable permission changes (*✅ Timeout Members — now allowed*) and careful attribution (*actor unknown* instead of a guess).
+- 🛡️ **Guardian, Privacy Doctor & Auto-Heal** — alerts on risky permission changes, a check that private areas really are private, structure snapshots and optional automatic repair.
+- 🩺 **System** — version, uptime, downtime reports (*offline 47 min, from → to, likely reason*), nightly local database backups with **Backup now**, module health.
+- 🔨 **Moderation** — kicks, bans, timeouts and warnings with a searchable history; optional **AutoMod** (blocked words, invite links); optional message edit/delete logging. Both off by default.
+- ⬆️ **Safe updates** — the bot tells you about new releases; updating makes a backup, checks health and rolls back automatically if something is wrong.
 
-## Requirements
-- **Docker Desktop** (Windows 10/11 or macOS) or Docker Engine with Compose (Linux). Free: https://www.docker.com/products/docker-desktop/
-- **Git** (optional but recommended: it makes updates one command). https://git-scm.com/downloads
-- A Discord account that owns the server you want to use.
-- About 1 GB of free RAM.
+Your data stays on your machine. The bot talks only to Discord, the music/radio sources you play, GitHub (update
+checks, if enabled) and an AI API only if you configure one. No telemetry.
 
-## Quick start
+## Quick start — Windows (easiest)
+Windows 10/11 (64-bit), ~1.5 GB disk. **No Docker, no Python or Java installs, no administrator rights.**
+
+1. Download **`VirtualRoomBot-<version>.zip`** from the [Releases](https://github.com/NimaNabi/virtual-room-bot/releases/latest) page and extract it (e.g. to `C:\VirtualRoomBot`).
+2. Double-click **`Setup.cmd`**. It downloads a private copy of Python, Java and the music server into that folder (each checked against a fixed checksum; nothing is installed system-wide).
+3. Follow the prompts: create the bot in the Discord Developer Portal (it tells you exactly where to click), paste the bot token into the hidden prompt, and it opens the **invite link**.
+4. Invite the bot to your server, then type **`/setup`** in Discord.
+
+Afterwards use the **Virtual Room Bot** shortcut on your desktop: Start, Stop, Restart, Status, Logs, Backup, Updates,
+Diagnostics, "Start with Windows". If the bot crashes it is restarted automatically (with a growing delay; it stops
+trying after repeated crashes and the menu shows why). Uninstall: delete the folder and the two shortcuts.
+
+*Automated fresh-install, lifecycle, crash-recovery and update/rollback tests pass on Windows. Real-world PCs and
+Discord setups vary — if something doesn't work, please [open an issue](https://github.com/NimaNabi/virtual-room-bot/issues/new/choose).*
+Windows may show a SmartScreen warning for downloaded scripts: choose **More info → Run anyway** only if you got the
+ZIP from this repository's Releases page.
+
+## Docker — Windows, macOS, Linux
+Needs Docker Desktop (or Docker Engine with Compose) and ~1 GB RAM. Git is recommended (one-command updates).
 ```
 git clone https://github.com/NimaNabi/virtual-room-bot.git
 cd virtual-room-bot
+bash scripts/init-env.sh          # creates .env (no bash? copy .env.example to .env, set a long random LAVALINK_PASSWORD)
+bash scripts/set-token.sh         # paste the bot token (hidden, checked with Discord) — or put DISCORD_TOKEN= in .env
+docker compose up -d --build
+docker compose exec bot python -m vrbot.cli invite     # prints the invite link
 ```
-(Or download the ZIP from the **Releases** page and extract it.) Then follow the steps below, or let an AI agent do it.
+Create the bot first: https://discord.com/developers/applications → **New Application** → **Bot**: turn on
+**Server Members Intent**, **Reset Token**, copy it. After inviting, drag the bot's role above the roles it should
+manage (Server Settings → Roles) and run **`/setup`**.
 
-## Easiest install: with an AI coding agent
-1. Open the folder in Claude Code, Codex or a similar coding agent.
-2. Say: **"Set this Discord bot up for me using SETUP_WITH_AI.md."**
-3. Do the few steps it asks of you: create the Discord application, provide the token, invite the bot, run `/setup`.
+**Or let an AI agent do it:** open the folder in Claude Code, Codex or similar and say *"Set this Discord bot up for
+me using SETUP_WITH_AI.md."* It covers both Windows and Docker and never needs your token in the chat.
 
-## Manual install (Docker)
-1. **Create the bot.**
-   - Go to https://discord.com/developers/applications → **New Application**.
-   - Under **Bot**, turn on **Server Members Intent**.
-   - Click **Reset Token** and copy the token.
-2. **Configure.**
-   - Run `bash scripts/init-env.sh`. On Windows without bash, copy `.env.example` to `.env` and set `LAVALINK_PASSWORD` to a long random string.
-   - Put the token in `.env` as `DISCORD_TOKEN=…`, or run `bash scripts/set-token.sh`.
-3. **Start.** Run `docker compose up -d --build`.
-4. **Invite the bot.** Run `docker compose exec bot python -m vrbot.cli invite` to print the invite link, or use the link below with your Application ID:
-   ```
-   https://discord.com/oauth2/authorize?client_id=YOUR_APPLICATION_ID&scope=bot+applications.commands&permissions=1376838348023
-   ```
-   Then, in **Server Settings → Roles**, drag the bot's role above the roles it should manage.
-5. **Set up.** In your server, run **/setup** (server owner only). It has five short pages:
-   1. Identity: the menu name, an optional subtitle and the bot's nickname.
-   2. Trust levels: keep the defaults, customize names and colours, or use roles you already have.
-   3. Layout: Minimal, Recommended or Existing server.
-   4. Modules: Music, Temporary rooms, Guest invites, Guardian.
-   5. Preview, then Apply.
+## Server / VPS (24/7)
+Same as Docker, on a Linux machine that stays on. Use a Git checkout so `scripts/update.sh` can update and roll back.
+Docker restarts the bot if it crashes, and the bot's own watchdog makes it restart if it freezes or can't reconnect.
 
-   Afterwards, tap **Give default level…** so existing members get the default level.
-6. **Use it.** Open the 🎛️ menu channel and tap **Music**, **My Room** and so on.
+## `/setup` in Discord
+Five short pages (server owner only): identity (menu name, nickname) → trust levels (keep defaults, rename/recolour,
+or reuse existing roles) → layout (**Minimal**, **Recommended** or **Existing server**) → modules (Music, Temporary
+rooms, Guest invites, Guardian) → preview → **Apply**, then **Give default level…** for existing members.
 
 ## Configuration
-- `.env` holds secrets and switches: the token, owner IDs, intents, music, and the optional AI. See `.env.example`.
-- `/data/server.yaml`, inside the data volume, holds your server's configuration. It is created from `config/default.yaml` on first start and filled in by `/setup`. See `docs/CONFIGURATION.md`.
-- The bot's global username and avatar are set in the Developer Portal. Its nickname in your server is set by `/setup`.
-- AI is off by default. To enable it, set `AI_ENABLED=true` plus `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` for any OpenAI-compatible API.
+| What | Where |
+|---|---|
+| Token, owner IDs, intents, music on/off, AI, update checks, `TZ` | `.env` (see `.env.example`) |
+| Your server's setup (roles, channels, modules, backups, logging) | `server.yaml` — Windows: `data\server.yaml`; Docker: inside the `vrbot-data` volume. Created by `/setup`; details in [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
+| Bot name and avatar | Discord Developer Portal |
 
-## Everyday commands
-```
-docker compose ps                 # status (both services should be healthy)
-docker compose logs -f bot        # live logs
-docker compose restart bot
-docker compose down               # stop (data is kept)
-```
+Optional features: **AI assistant** (`AI_ENABLED=true` + any OpenAI-compatible `AI_BASE_URL`, `AI_API_KEY`,
+`AI_MODEL`), **update notifications** (`UPDATE_REPO=NimaNabi/virtual-room-bot`), **AutoMod** (Owner → System →
+AutoMod; needs `MESSAGE_CONTENT_INTENT=true`), **message edit/delete logging** (`message_logging.metadata: true` in
+`server.yaml`; message text is kept only with `content: true` and erased after 7 days).
 
 ## Updating
-The bot tells the owner when a new version exists (🎛️ → Owner → **Updates**: installed and latest version, release notes). It never updates itself.
+- **Windows:** desktop menu → **Check for updates**. Verified download (SHA-256) → backup → install → health check → automatic rollback.
+- **Docker with Git:** `bash scripts/update.sh check`, then `bash scripts/update.sh apply` (same safety steps); `bash scripts/update.sh rollback` to go back.
+- **Docker from a ZIP:** extract the new ZIP to a new folder, copy `.env` over, `docker compose down` in the old folder, `docker compose up -d --build` in the new one.
 
-**Git installs (recommended):**
-```
-bash scripts/update.sh check      # see what's new
-bash scripts/update.sh apply      # backup → new release → rebuild → health check → automatic rollback on failure
-bash scripts/update.sh rollback   # back to the previous version (code + database backup)
-```
-Optional: keep `bash scripts/update.sh watch` running (e.g. in tmux or as a service) so the owner's **Update** button applies updates.
-The repository is public, so checks and downloads need no account or token. For daily in-Discord notifications without the host check, set `UPDATE_REPO=NimaNabi/virtual-room-bot` in `.env`. Only stable releases (tags) are offered, never unreleased commits.
+Only stable releases are offered. Data and configuration are never in the code folder's tracked files, so updates
+keep them; database migrations are automatic and only add.
 
-**ZIP installs:** get the new ZIP from the **Releases** page, extract it to a new folder, copy your `.env` into it, run `docker compose down` in the old folder and `docker compose up -d --build` in the new one. Keep the old folder until the new version runs (that's your rollback).
+## Backups
+Nightly at 04:00 (host time), the last 7 are kept, plus **Backup now** in Owner → System. Backups never leave your
+machine. Restoring is deliberately not a button — see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#restore-a-backup).
 
-Your configuration and data live in the Docker volume `virtual-room-bot_vrbot-data`, never in the code folder, so updates keep them. Database migrations run automatically and only add.
-
-## Backups and restore
-The bot backs up its database **every night** (04:00 in your `TZ`, configurable under `system:` in `server.yaml`) and keeps the last 7. If the computer was off at that time, it catches up once when it's back. Backups stay on your machine; nothing is uploaded. Owner → System shows the last and next backup, and **Backup now**.
-```
-docker compose exec bot python -m vrbot.cli backups            # list backups
-docker compose exec bot python -m vrbot.cli backup             # extra manual copy
-```
-**Restore** is deliberately not a button. Stop the bot, restore, start it again:
-```
-docker compose stop bot
-docker compose run --rm bot python -m vrbot.cli restore auto-20261007-040000.db
-docker compose up -d bot
-```
-It checks the backup's integrity, asks you to type RESTORE, and keeps your current database as a `pre-restore-…` copy.
-To copy everything (database, configuration, backups) off the machine:
-```
-docker run --rm -v virtual-room-bot_vrbot-data:/data -v "$PWD":/out alpine tar czf /out/vrbot-data.tgz -C /data .
-```
-
-## Privacy defaults
-- **Message edit/delete logging is off.** Turn it on in `server.yaml` (`message_logging.metadata: true`) to log who edited or deleted what, where and when. Message *text* is only kept with `content: true` plus the Message Content intent, and is erased after `content_days` (7). Log channels are never logged.
-- **AutoMod is off** until the owner turns it on (Owner → System → AutoMod). It needs `MESSAGE_CONTENT_INTENT=true`.
-- **Downtime notices** go to the owner-only log; a DM is optional (`system.downtime_dm_owner`).
-
-## Troubleshooting
-| Symptom | Check |
+## Problems?
+| Symptom | First thing to check |
 |---|---|
-| Bot offline | `docker compose logs bot`. "DISCORD_TOKEN is not set" means the token is missing from `.env`. |
-| Invalid token | Reset it in the Developer Portal and run `scripts/set-token.sh`. |
-| Privileged intents error | Turn on **Server Members Intent**. Only set `MESSAGE_CONTENT_INTENT` / `PRESENCE_INTENT` to true if they're on in the portal too. |
-| Music unavailable | `docker compose ps`: lavalink must be healthy. Check `COMPOSE_PROFILES=music` and `LAVALINK_PASSWORD` in `.env`. |
-| `/setup` reports missing permissions | Re-invite with the link above, or give the bot's role those permissions and move it higher. |
-| Configuration errors | `docker compose exec bot python -m vrbot.cli check-config` |
+| Bot offline | Windows: menu → **Status** / **View logs**. Docker: `docker compose logs bot` |
+| "Invalid token" | Reset the token in the Developer Portal; Windows: menu → **Change bot token**; Docker: `bash scripts/set-token.sh` |
+| "Privileged intents" error | Developer Portal → Bot → turn on **Server Members Intent** (and Message Content only if you enabled AutoMod) |
+| No music | Windows: **Status** must show *Music: running*; Docker: `lavalink` must be healthy in `docker compose ps` |
+| Something else | **Diagnostics** (Windows menu, or `docker compose exec bot python -m vrbot.cli diagnostics`) and [open an issue](https://github.com/NimaNabi/virtual-room-bot/issues/new/choose) |
+
+More: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md). **Never post your bot token or API keys** — the diagnostics report leaves them out.
 
 ## Removing the bot
-1. Kick the bot from your server.
-2. Run `docker compose down -v`. This deletes the data volume, so back it up first if you want to keep it.
-3. Optionally delete what `/setup` created; its report lists the roles and channels. The bot never deletes your messages.
+Kick it from your server. Windows: menu → Stop, then delete the folder and the two shortcuts. Docker:
+`docker compose down -v` (deletes the data volume — back it up first). `/setup`'s report lists the roles and channels it
+created; the bot never deletes your messages.
 
-## Security and privacy
-- Your data (database, logs, backups, configuration) stays on your machine, in the Docker volume.
-- The bot contacts only Discord, the music/radio sources you play, GitHub's public API if you set `UPDATE_REPO`,
-  and an AI API if you configure one. No telemetry.
-- Secrets (bot token, `LAVALINK_PASSWORD`, AI keys) live only in `.env`, which is never committed.
-- Report vulnerabilities privately: see [SECURITY.md](SECURITY.md).
-
-## For developers
-[ARCHITECTURE.md](ARCHITECTURE.md) explains the code layout; [CONTRIBUTING.md](CONTRIBUTING.md) explains local
-development, tests and pull requests.
-
-## License
-[MIT](LICENSE): use, modify and share it freely. Third-party components: `docs/THIRD_PARTY.md`. See also `NOTICE.md`.
+## Contributing, security, license
+- [ARCHITECTURE.md](ARCHITECTURE.md) — code map · [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, tests, pull requests
+- [SECURITY.md](SECURITY.md) — report vulnerabilities privately · [CHANGELOG.md](CHANGELOG.md) — what changed
+- [MIT](LICENSE) — use, modify and share freely. Third-party components: [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md), [NOTICE.md](NOTICE.md).

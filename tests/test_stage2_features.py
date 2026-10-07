@@ -234,3 +234,38 @@ def test_help_is_permission_aware():
 def test_feature_registry_keys_unique():
     keys = [f.key for f in features.FEATURES]
     assert len(keys) == len(set(keys))
+
+
+# ---------------------------------------------------------------- v1.2.0: watchdog, diagnostics, backup names
+def test_watchdog_decisions():
+    from vrbot.watchdog import should_exit
+    assert should_exit(1000, 990, 500, 990) is None                         # healthy
+    assert "event loop stuck" in should_exit(1000, 600, 500, 990)
+    assert should_exit(1000, 995, None, 500) is None                        # short disconnect: let discord.py reconnect
+    assert "not connected" in should_exit(2000, 1995, None, 500)            # 25 min disconnected
+    assert U.REASONS["watchdog"]
+
+
+def test_diagnostics_never_leak_secrets(tmp_path, monkeypatch):
+    from vrbot.diagnostics import report, sanitize
+    tok = "M" + "x" * 23 + "." + "y" * 6 + "." + "z" * 30          # token-shaped, built at runtime (fake)
+    s = sanitize(f"token {tok} DISCORD_TOKEN=abc user 123456789012345678 someone@example.com "
+                 '{"content": "private text", "x": 1} Authorization: Bot xyz')
+    for bad in (tok, "abc user", "123456789012345678", "someone@example.com", "private text", "Bot xyz"):
+        assert bad not in s, bad
+    monkeypatch.setenv("DISCORD_TOKEN", tok)
+    (tmp_path / "heartbeat.json").write_text(json.dumps({"ts": 1, "state": "ready", "modules": {"app": "loaded"}}))
+    logs = [json.dumps({"ts": "t", "level": "ERROR", "logger": "x", "msg": f"boom {tok}"}),
+            json.dumps({"level": "INFO", "msg": "fine"})]
+    out = report(tmp_path, tmp_path, logs)
+    assert tok not in out and "DISCORD_TOKEN set" in out and "boom <token>" in out and "fine" not in out
+    assert "Database: not created yet" in out and "Version: dev" in out
+
+
+def test_unified_backup_names(tmp_path):
+    for n in ("auto-20261001-040000.db", "manual-20261005-120000.db", "auto-20261003-040000.db", "vrbot-old.db"):
+        (tmp_path / n).write_text("x")
+    assert [p.name for p in U.list_backups(tmp_path)] == ["manual-20261005-120000.db", "auto-20261003-040000.db",
+                                                          "auto-20261001-040000.db"]
+    U.prune(tmp_path, 1)                                                     # only nightly backups rotate
+    assert sorted(p.name for p in U.list_backups(tmp_path)) == ["auto-20261003-040000.db", "manual-20261005-120000.db"]

@@ -1,0 +1,41 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste your bot token, LAVALINK_PASSWORD, AI keys or other secrets.** If you posted one by mistake, reset it immediately.
+        The diagnostics report (Windows menu → Diagnostics, or `docker compose exec bot python -m vrbot.cli diagnostics`) leaves secrets out.
+  - type: input
+    id: version
+    attributes: {label: Version, description: "Owner → System, the VERSION file, or the diagnostics report", placeholder: "1.2.0"}
+    validations: {required: true}
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation method
+      options: ["Windows (Setup.cmd)", "Docker on Windows", "Docker on macOS", "Docker on Linux / server", "Other"]
+    validations: {required: true}
+  - type: input
+    id: os
+    attributes: {label: Operating system, placeholder: "Windows 11 23H2 / Ubuntu 24.04 / macOS 15"}
+    validations: {required: true}
+  - type: textarea
+    id: steps
+    attributes: {label: Steps to reproduce, placeholder: "1. Open 🎛️ menu → Music\n2. Tap Quick Play\n3. ..."}
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes: {label: Expected behavior}
+    validations: {required: true}
+  - type: textarea
+    id: actual
+    attributes: {label: Actual behavior}
+    validations: {required: true}
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report and relevant logs
+      description: Paste the diagnostics report (secrets are already removed). Check it once more before posting.
+      render: text

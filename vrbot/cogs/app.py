@@ -37,6 +37,17 @@ class Toast(Exception):
     """A friendly message for the person who tapped (never a technical error)."""
 
 
+def owner_only(handler):
+    """Control Center handler for the server owner only — checked on the server side before anything runs."""
+    import functools
+
+    @functools.wraps(handler)
+    async def wrapped(self, i, x, v):
+        self.need_owner(i.user)
+        return await handler(self, i, x, v)
+    return wrapped
+
+
 # ---------------------------------------------------------------- restart-proof components
 class AppButton(discord.ui.DynamicItem[discord.ui.Button], template=r"va:(?P<a>[a-z0-9_]+):(?P<x>[^ ]*)"):
     def __init__(self, a: str, x: str = "", *, label: str | None = None, emoji: str | None = None, style=S,
@@ -768,7 +779,11 @@ class ControlCenter(commands.Cog):
         self.need_owner(m)
         from ..features import status_lines
         sysc = self.cog("System")
-        lines = [await sysc.downtime_status_line(), "", "**💾 Database backups**", *sysc.backup_status_lines(),
+        from pathlib import Path as _P
+        vf = _P(__file__).resolve().parents[2] / "VERSION"
+        ver = vf.read_text().strip() if vf.exists() else "dev"
+        lines = [f"**Version:** v{ver}", await sysc.downtime_status_line(), "", "**💾 Database backups**",
+                 *sysc.backup_status_lines(),
                  "Restore: stop the bot, then on the host run `python -m vrbot.cli restore <file>` (asks to confirm).",
                  "", "**🧩 Modules**", *status_lines(self.bot)]
         emb = discord.Embed(title="🩺 System", color=COLORS["INFO"], description="\n".join(lines)[:3900])
@@ -794,15 +809,15 @@ class ControlCenter(commands.Cog):
                          tog("exempt_top_level", "Exempt most trusted level", "Don't exempt trusted level", 2),
                          back("owner_system", row=3))
 
+    @owner_only
     async def h_sysbk(self, i, x, v):
-        self.need_owner(i.user)
         await self.loading(i, "Backing up the database…")
         r = await self.cog("System").backup_now("manual", actor=i.user)
         await self.show(i, "owner_system", note=(f"✅ Backup saved: `{r['file']}` ({r['size_kb']} KB)" if r["ok"]
                                                   else f"❌ Backup failed: {r['error']}"))
 
+    @owner_only
     async def h_amtog(self, i, x, v):
-        self.need_owner(i.user)
         am = self.cog("AutoMod")
         if x not in ("enabled", "invites", "allow_own_invites", "exempt_top_level"):
             raise Toast("Unknown setting.")
@@ -815,8 +830,8 @@ class ControlCenter(commands.Cog):
             note = "ℹ️ On — add blocked words or turn on the invite filter so it has something to do."
         await self.show(i, "owner_automod", note=note)
 
+    @owner_only
     async def h_amwords(self, i, x, v):
-        self.need_owner(i.user)
         am = self.cog("AutoMod")
         from .automod import parse_words
 
@@ -1094,47 +1109,47 @@ class ControlCenter(commands.Cog):
         await self.show(i, "friends_myinv", note=f"🧹 Cancelled {n} invite(s).")
 
     # owner
+    @owner_only
     async def h_opick(self, i, x, v):
-        self.need_owner(i.user)
         await self.show(i, "owner_member", v[0])
 
+    @owner_only
     async def h_opickback(self, i, x, v):
-        self.need_owner(i.user)
         await self.show(i, "owner_member", x)
 
+    @owner_only
     async def h_ot(self, i, x, v):
-        self.need_owner(i.user)
         tier, uid = x.split(".")
         await self.busy(i)
         msg = await self.cog("Tier").set_tier(self.member(uid), tier, i.user, "owner control center")
         await self.show(i, "owner_member", uid, note=msg)
 
+    @owner_only
     async def h_oe(self, i, x, v):
-        self.need_owner(i.user)
         kind, uid = x.split(".")
         await self.busy(i)
         msg = await self.cog("Access").grant(self.member(uid), kind, None, i.user, "owner control center")
         await self.show(i, "owner_member", uid, note=msg)
 
+    @owner_only
     async def h_orv(self, i, x, v):
-        self.need_owner(i.user)
         access = self.cog("Access")
         kinds = [g["kind"] for g in access.grants.values() if g["user_id"] == int(x)]
         await self.busy(i)
         msgs = [await access.revoke(int(x), k, "manual revoke (control center)", i.user) for k in kinds] or ["Nothing to revoke."]
         await self.show(i, "owner_member", x, note="\n".join(msgs))
 
+    @owner_only
     async def h_oact(self, i, x, v):
-        self.need_owner(i.user)
         await self.show(i, "owner_activity", x)
 
+    @owner_only
     async def h_olc(self, i, x, v):
-        self.need_owner(i.user)
         rng, uid = x.split(".")
         await self.show(i, "owner_logs", v[0], rng, uid)
 
+    @owner_only
     async def h_olr(self, i, x, v):
-        self.need_owner(i.user)
         await self.show(i, "owner_logs", *x.split("."))
 
     async def h_updreq(self, i, x, v):
@@ -1150,15 +1165,15 @@ class ControlCenter(commands.Cog):
         await self.show(i, "owner_updates", note=f"⏳ Update to **{x}** requested. It's applied by the host updater "
                                                  "(`bash scripts/update.sh apply`, or automatically if `update.sh watch` runs).")
 
+    @owner_only
     async def h_olfind(self, i, x, v):
-        self.need_owner(i.user)
 
         async def go(mi, text):
             await self.show(mi, "owner_find", text.replace("|", " ")[:60])
         await i.response.send_modal(TextModal("🔍 Find a person", "Name, @username or user ID", go, max_length=60))
 
+    @owner_only
     async def h_olm(self, i, x, v):
-        self.need_owner(i.user)
         cat, rng = x.split(".")
         await self.show(i, "owner_logs", cat, rng, v[0])
 

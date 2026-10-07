@@ -21,7 +21,7 @@ Nothing about your server is hard-coded: `config/default.yaml` is copied to `/da
 | Identity & rendering | `identity.py`, `render.py`, `events.py` | every logged person is stored by immutable user ID with a snapshot; logs are a view of stored events |
 | Authorization | `authz.py`, `trust.py`, `perms/` | owner/trust/elevation checks; permission model, privacy audit, snapshots |
 | Feature registry | `features.py` | one list of modules (audience, on/off, setup needs) → Help, Owner → System |
-| Runtime health | `uptime.py` | downtime classification, backup schedule and SQLite-safe snapshots (pure, tested) |
+| Runtime health | `uptime.py`, `watchdog.py`, `diagnostics.py` | downtime classification, backup schedule and SQLite-safe snapshots; a thread that exits a frozen/disconnected bot so its supervisor restarts it; the sanitised diagnostics report |
 | UI | `ui.py`, `cogs/app.py` | the 🎛️ Control Center: persistent buttons (`DynamicItem`), navigation stack, Back/Home |
 | Features | `cogs/*.py` | one cog per feature (below) |
 
@@ -47,6 +47,13 @@ Nothing about your server is hard-coded: `config/default.yaml` is copied to `/da
   handler re-checks permissions before acting.
 - **Updates:** the bot only *notifies*. `scripts/update.sh` (host side) does backup → checkout of a release tag →
   rebuild → health check → rollback on failure.
+
+## Native Windows install
+`Setup.cmd` → `installer/setup.ps1` downloads pinned, checksum-verified runtimes into `runtime/` (Python, Java,
+Lavalink) and installs the packages there. `installer/vrb.py` is the manager: a background **supervisor** runs the
+music service and the bot, restarts the bot after a crash (5 s → 5 min back-off, gives up after 5 crashes in 10 min,
+never after an intentional Stop), plus status, logs, backup, diagnostics, verified updates with rollback, and
+"start with Windows" (a per-user Startup shortcut, no admin).
 
 ## Tests
 `tests/` runs fully offline with fakes for Discord objects: `python -m pytest -q`.

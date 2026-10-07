@@ -157,6 +157,21 @@ def main(argv: list[str]) -> int:
         dump(inv, p)
         print(f"wrote {p}: {len(inv['roles'])} roles, {len(inv['channels'])} channels, {len(inv['members'])} members")
         return 0
+    if cmd == "backup":
+        from datetime import datetime as _dt
+
+        from .uptime import backup_name, snapshot_sqlite
+        data = Path(os.environ.get("DATA_DIR", "/data"))
+        out = data / "backups" / backup_name(_dt.now(), "manual")
+        size = snapshot_sqlite(data / "vrbot.db", out)
+        print(f"backup written: {out} ({size // 1024} KB)")
+        return 0
+    if cmd == "diagnostics":
+        from .diagnostics import report
+        data = Path(os.environ.get("DATA_DIR", "/data"))
+        logs = sys.stdin.read().splitlines() if "--log" in argv and not sys.stdin.isatty() else []
+        print(report(data, Path(__file__).resolve().parent.parent, logs))
+        return 0
     if cmd == "backups":
         from .uptime import list_backups
         data = Path(os.environ.get("DATA_DIR", "/data"))
@@ -165,18 +180,6 @@ def main(argv: list[str]) -> int:
         return 0
     if cmd == "restore":
         return restore(argv[2] if len(argv) > 2 else "", "--yes" in argv)
-    if cmd == "backup":
-        import sqlite3
-        import time as _t
-        data = Path(os.environ.get("DATA_DIR", "/data"))
-        (data / "backups").mkdir(parents=True, exist_ok=True)
-        out = data / "backups" / f"vrbot-{_t.strftime('%Y%m%d-%H%M%S')}.db"
-        src, dst = sqlite3.connect(data / "vrbot.db"), sqlite3.connect(out)
-        src.backup(dst)
-        dst.close()
-        src.close()
-        print(f"backup written: {out}")
-        return 0
     if cmd == "verify":
         return asyncio.run(verify())
     if cmd == "check-config":

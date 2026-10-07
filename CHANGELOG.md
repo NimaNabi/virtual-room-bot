@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 — 2026-10-07
+- Windows Easy Setup: double-click Setup.cmd
+- private, checksum-verified Python, Java and music server
+- no Docker, no admin rights
+- desktop menu (Start, Stop, Restart, Status, Logs, Backup, Updates, Diagnostics, Start with Windows)
+- Crash recovery: Windows supervisor restarts the bot after a crash (5 s to 5 min back-off, stops after 5 crashes in 10 min, never after an intentional Stop, reason shown in Status)
+- self-watchdog exits a frozen or long-disconnected bot so Docker or the supervisor restarts it
+- Verified updates for Windows installs (SHA-256, backup, health check, automatic rollback)
+- Diagnostics report for bug reports (Windows menu or cli diagnostics): versions, state, migrations, sanitised errors, never secrets or message text
+- Owner -> System shows the version
+- backups use one naming scheme (auto-/manual-)
+- README rewritten for newcomers (Windows, Docker, Server), docs/TROUBLESHOOTING.md, GitHub issue templates, AGENTS.md/CLAUDE.md, SETUP_WITH_AI.md covers Windows and Docker
+
 ## 1.1.0 — 2026-10-07
 - Owner -> System: uptime, last downtime with from/to and likely reason (merged notices, optional DM), module health
 - Nightly local database backups (SQLite-safe, integrity-checked, keep 7, catch-up after downtime), Backup now, CLI backups/restore with confirmation

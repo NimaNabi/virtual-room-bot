@@ -106,6 +106,9 @@ class ServerBot(commands.Bot):
                 self.module_status[mod.rsplit(".", 1)[1]] = f"failed: {type(e).__name__}: {e}"
                 log.exception("module %s failed to load", mod)
         self.tree.on_error = self.on_app_command_error
+        from .watchdog import Watchdog
+        self.watchdog = Watchdog(self.settings.data_dir, self.db.path)
+        self.watchdog.start()
         self.heartbeat.start()
 
     async def on_ready(self) -> None:
@@ -133,6 +136,8 @@ class ServerBot(commands.Bot):
                                     details={"modules": self.module_status}, source="bot")
 
     async def close(self) -> None:
+        if getattr(self, "watchdog", None):
+            self.watchdog.stop()
         try:
             self._write_heartbeat(state="stopping")
             system = self.get_cog("System")
@@ -318,6 +323,9 @@ class ServerBot(commands.Bot):
 
     @tasks.loop(seconds=30)
     async def heartbeat(self):
+        lat = self.latency
+        if getattr(self, "watchdog", None):
+            self.watchdog.tick(self.is_ready() and not self.is_closed() and lat == lat and lat != float("inf"))
         ok = await self.db.ping()
         self.module_status["database"] = "ok" if ok else "error"
         self._write_heartbeat()

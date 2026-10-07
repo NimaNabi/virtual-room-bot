@@ -16,6 +16,7 @@ from pathlib import Path
 REASONS = {
     "connection": "connection to Discord lost (network, VPN or Discord problem); the bot kept running",
     "clean": "the bot was stopped or restarted (update, restart or shutdown command)",
+    "watchdog": "the bot froze or could not reconnect, so its watchdog restarted it",
     "unknown": "no clean shutdown was recorded: the machine was off or asleep, lost power, or the bot crashed",
 }
 
@@ -64,18 +65,21 @@ def human_duration(seconds: int) -> str:
 
 
 # ---------------------------------------------------------------- scheduled database backups
-BACKUP_RE = re.compile(r"^auto-(\d{8}-\d{6})\.db$")
+# One naming scheme for every database backup: auto-<time>.db (nightly) and manual-<time>.db (Backup now, CLI,
+# before an update). Only auto- backups are rotated; manual ones are kept until the owner deletes them.
+BACKUP_RE = re.compile(r"^(auto|manual)-(\d{8}-\d{6})\.db$")
 
 
-def list_backups(folder: Path) -> list[Path]:
-    """Scheduled/manual database backups made by the bot, newest first."""
+def list_backups(folder: Path, kind: str | None = None) -> list[Path]:
+    """Database backups made by the bot, newest first (optionally only 'auto' or 'manual')."""
     if not folder.exists():
         return []
-    return sorted((p for p in folder.iterdir() if BACKUP_RE.match(p.name)), key=lambda p: p.name, reverse=True)
+    found = [p for p in folder.iterdir() if BACKUP_RE.match(p.name) and (kind is None or p.name.startswith(kind + "-"))]
+    return sorted(found, key=lambda p: BACKUP_RE.match(p.name).group(2), reverse=True)
 
 
-def backup_name(now: datetime) -> str:
-    return f"auto-{now.strftime('%Y%m%d-%H%M%S')}.db"
+def backup_name(now: datetime, kind: str = "auto") -> str:
+    return f"{kind}-{now.strftime('%Y%m%d-%H%M%S')}.db"
 
 
 def backup_due(newest: datetime | None, now: datetime, hour: int) -> bool:
@@ -99,12 +103,12 @@ def next_backup(newest: datetime | None, now: datetime, hour: int) -> datetime:
 
 def backup_time(path: Path) -> datetime | None:
     m = BACKUP_RE.match(path.name)
-    return datetime.strptime(m.group(1), "%Y%m%d-%H%M%S") if m else None
+    return datetime.strptime(m.group(2), "%Y%m%d-%H%M%S") if m else None
 
 
 def prune(folder: Path, keep: int) -> list[Path]:
     removed = []
-    for old in list_backups(folder)[max(1, keep):]:
+    for old in list_backups(folder, "auto")[max(1, keep):]:
         old.unlink(missing_ok=True)
         removed.append(old)
     return removed

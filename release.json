@@ -1,21 +1,20 @@
 {
- "version": "1.1.0",
+ "version": "1.2.0",
  "date": "2026-10-07",
  "breaking": false,
  "min_config_schema": 1,
  "migrations": "automatic (additive)",
  "notes": [
-  "Owner -> System: uptime, last downtime with from/to and likely reason (merged notices, optional DM), module health",
-  "Nightly local database backups (SQLite-safe, integrity-checked, keep 7, catch-up after downtime), Backup now, CLI backups/restore with confirmation",
-  "Permission changes in Discord's own words (Timeout Members - now allowed / now denied (was allowed) / reset to default)",
-  "Stricter audit attribution: simultaneous moderators -> actor unknown instead of a guess",
-  "message deletes attributed only from matching audit evidence",
-  "Roles at leave stored and shown in Find person",
-  "Optional AutoMod (off): blocked words with wildcards, Unicode and Arabic-script normalisation, invite filter, edits rechecked, configured with buttons",
-  "Message edit/delete logging off by default",
-  "message text erased after 7 days",
-  "log channels never logged",
-  "Notices when the bot is added to or removed from a server",
-  "Help lists only what you can use (generated from one feature registry)"
+  "Windows Easy Setup: double-click Setup.cmd",
+  "private, checksum-verified Python, Java and music server",
+  "no Docker, no admin rights",
+  "desktop menu (Start, Stop, Restart, Status, Logs, Backup, Updates, Diagnostics, Start with Windows)",
+  "Crash recovery: Windows supervisor restarts the bot after a crash (5 s to 5 min back-off, stops after 5 crashes in 10 min, never after an intentional Stop, reason shown in Status)",
+  "self-watchdog exits a frozen or long-disconnected bot so Docker or the supervisor restarts it",
+  "Verified updates for Windows installs (SHA-256, backup, health check, automatic rollback)",
+  "Diagnostics report for bug reports (Windows menu or cli diagnostics): versions, state, migrations, sanitised errors, never secrets or message text",
+  "Owner -> System shows the version",
+  "backups use one naming scheme (auto-/manual-)",
+  "README rewritten for newcomers (Windows, Docker, Server), docs/TROUBLESHOOTING.md, GitHub issue templates, AGENTS.md/CLAUDE.md, SETUP_WITH_AI.md covers Windows and Docker"
  ]
 }

@@ -81,6 +81,7 @@ def test_fresh_owner_and_owner_equivalents_are_configuration_only():
 def test_no_discord_ids_in_shipped_text_files():
     pat = re.compile(r"(?<!\d)\d{17,20}(?!\d)")
     for p in ROOT.rglob("*"):
-        if p.is_file() and p.suffix in {".py", ".yaml", ".yml", ".md", ".example", ".txt", ".ini"} and ".git" not in p.parts:
+        local = {".git", "runtime", "data", "logs", "previous", ".venv"}   # installed/user data, not shipped files
+        if p.is_file() and p.suffix in {".py", ".yaml", ".yml", ".md", ".example", ".txt", ".ini"} and not local & set(p.relative_to(ROOT).parts):
             found = set(pat.findall(p.read_text(encoding="utf-8", errors="ignore"))) - PLACEHOLDERS
             assert not found, p

@@ -191,13 +191,13 @@ class System(commands.Cog):
         return U.list_backups(self.backup_dir)
 
     def newest_backup_time(self) -> datetime | None:
-        b = self.backups()
+        b = U.list_backups(self.backup_dir, "auto")
         return U.backup_time(b[0]) if b else None
 
     async def backup_now(self, reason: str = "scheduled", actor: discord.abc.User | None = None) -> dict:
         async with self._backup_lock:
             now = U.local_now()
-            dest = self.backup_dir / U.backup_name(now)
+            dest = self.backup_dir / U.backup_name(now, "manual" if reason == "manual" else "auto")
             try:
                 await asyncio.to_thread(U.clean_leftovers, self.backup_dir)
                 size = await asyncio.to_thread(U.snapshot_sqlite, self.db_file, dest)
