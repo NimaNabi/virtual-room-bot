@@ -126,8 +126,10 @@ class RetentionCfg(BaseModel):
 
 
 class MessageLogCfg(BaseModel):
-    metadata: bool = True   # deletes/edits: who/where/when (no content)
-    content: bool = False   # requires privileged MESSAGE_CONTENT intent
+    """Message edit/delete logging is OPTIONAL and off unless the server config turns it on (privacy)."""
+    metadata: bool = False  # deletes/edits: who/where/when (no content)
+    content: bool = False   # also keep the text; requires the privileged MESSAGE_CONTENT intent
+    content_days: int = Field(7, ge=1)  # message text is erased from the log after this many days
 
 
 class AutoHealCfg(BaseModel):
@@ -179,6 +181,14 @@ class VoiceRoomsCfg(BaseModel):
 class AICfg(BaseModel):
     enabled: bool = True
     max_tool_rounds: int = 6
+
+
+class SystemCfg(BaseModel):
+    backups_enabled: bool = True       # scheduled local database backups (never sent anywhere)
+    backup_hour: int = Field(4, ge=0, le=23)   # host-local time (set TZ for the container)
+    backup_keep: int = Field(7, ge=1, le=60)
+    downtime_min_minutes: int = Field(3, ge=1)  # shorter gaps (quick restarts, reconnects) are not reported
+    downtime_dm_owner: bool = False    # optional DM in addition to the owner log
 
 
 class IdentityCfg(BaseModel):
@@ -234,6 +244,7 @@ class ServerConfig(BaseModel):
     guardian: GuardianCfg = Field(default_factory=GuardianCfg)
     summaries: SummaryCfg = Field(default_factory=SummaryCfg)
     voice_rooms: VoiceRoomsCfg = Field(default_factory=VoiceRoomsCfg)
+    system: SystemCfg = Field(default_factory=SystemCfg)
 
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config" / "default.yaml"

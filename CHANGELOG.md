@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0 — 2026-10-07
+- Owner -> System: uptime, last downtime with from/to and likely reason (merged notices, optional DM), module health
+- Nightly local database backups (SQLite-safe, integrity-checked, keep 7, catch-up after downtime), Backup now, CLI backups/restore with confirmation
+- Permission changes in Discord's own words (Timeout Members - now allowed / now denied (was allowed) / reset to default)
+- Stricter audit attribution: simultaneous moderators -> actor unknown instead of a guess
+- message deletes attributed only from matching audit evidence
+- Roles at leave stored and shown in Find person
+- Optional AutoMod (off): blocked words with wildcards, Unicode and Arabic-script normalisation, invite filter, edits rechecked, configured with buttons
+- Message edit/delete logging off by default
+- message text erased after 7 days
+- log channels never logged
+- Notices when the bot is added to or removed from a server
+- Help lists only what you can use (generated from one feature registry)
+
 ## 1.0.6 — 2026-10-07
 - Public release: MIT license, SECURITY.md, CONTRIBUTING.md, ARCHITECTURE.md
 - README rewritten for first-time visitors (where the bot runs, quick start)

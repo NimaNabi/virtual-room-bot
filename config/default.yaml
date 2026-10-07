@@ -123,9 +123,17 @@ retention:
   keep_snapshots: 60
   auto_snapshot_hours: 24
 
-message_logging:
-  metadata: true
-  content: false
+message_logging:                   # OPTIONAL, off by default (privacy). metadata = who/where/when of edits & deletes
+  metadata: false
+  content: false                   # also keep message text (needs MESSAGE_CONTENT_INTENT)
+  content_days: 7                  # message text is erased after this many days
+
+system:
+  backups_enabled: true            # nightly local database backup (never uploaded)
+  backup_hour: 4                   # host-local time; set TZ in .env for your timezone
+  backup_keep: 7
+  downtime_min_minutes: 3          # shorter gaps (quick restarts) are not reported
+  downtime_dm_owner: false         # also DM the owner about downtime
 
 autoheal:
   enabled: false                   # turn on after /setup recorded the first baseline

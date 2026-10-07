@@ -87,6 +87,45 @@ async def verify() -> int:
     return 0 if ok else 1
 
 
+def restore(name: str, yes: bool) -> int:
+    """Replace the live database with a backup. Refuses while the bot is running; keeps the current database aside."""
+    import shutil
+    import sqlite3
+    import time as _time
+    data = Path(os.environ.get("DATA_DIR", "/data"))
+    src = data / "backups" / Path(name).name
+    db = data / "vrbot.db"
+    if not name or not src.exists():
+        print("usage: restore <backup file name>   (see: backups)")
+        return 2
+    hb = data / "heartbeat.json"
+    if hb.exists():
+        try:
+            st = json.loads(hb.read_text())
+            if st.get("state") not in ("stopping", "no_token") and _time.time() - st.get("ts", 0) < 90:
+                print("The bot is running. Stop it first (docker compose stop bot), then run restore again.")
+                return 1
+        except ValueError:
+            pass
+    with sqlite3.connect(src) as c:
+        if c.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            print("That backup failed its integrity check; nothing was changed.")
+            return 1
+    if not yes:
+        ans = input(f"Replace the current database with {src.name}? The current one is kept as a copy. Type RESTORE: ")
+        if ans.strip() != "RESTORE":
+            print("Cancelled; nothing was changed.")
+            return 1
+    keep = data / "backups" / f"pre-restore-{_time.strftime('%Y%m%d-%H%M%S')}.db"
+    if db.exists():
+        shutil.copy2(db, keep)
+    for extra in (db.with_name(db.name + "-wal"), db.with_name(db.name + "-shm")):
+        extra.unlink(missing_ok=True)
+    shutil.copy2(src, db)
+    print(f"Restored {src.name}. Previous database saved as {keep.name}. Start the bot again.")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     cmd = argv[1] if len(argv) > 1 else "help"
     if cmd == "health":
@@ -118,6 +157,14 @@ def main(argv: list[str]) -> int:
         dump(inv, p)
         print(f"wrote {p}: {len(inv['roles'])} roles, {len(inv['channels'])} channels, {len(inv['members'])} members")
         return 0
+    if cmd == "backups":
+        from .uptime import list_backups
+        data = Path(os.environ.get("DATA_DIR", "/data"))
+        for p in list_backups(data / "backups"):
+            print(f"{p.name}  {p.stat().st_size // 1024} KB")
+        return 0
+    if cmd == "restore":
+        return restore(argv[2] if len(argv) > 2 else "", "--yes" in argv)
     if cmd == "backup":
         import sqlite3
         import time as _t

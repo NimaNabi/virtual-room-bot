@@ -135,8 +135,62 @@ def has(value: int, name: str) -> bool:
     return bool(value & FLAGS[normalize(name)])
 
 
+# The names Discord itself shows in Server Settings (where they differ from a plain title-cased flag name).
+DISCORD_NAMES: dict[str, str] = {
+    "create_instant_invite": "Create Invite", "manage_guild": "Manage Server", "stream": "Video",
+    "view_channel": "View Channels", "send_tts_messages": "Send Text-to-Speech Messages",
+    "mention_everyone": "Mention @everyone, @here and All Roles", "use_external_emojis": "Use External Emoji",
+    "view_guild_insights": "View Server Insights", "use_vad": "Use Voice Activity",
+    "manage_guild_expressions": "Manage Expressions", "create_guild_expressions": "Create Expressions",
+    "use_application_commands": "Use Application Commands", "send_messages_in_threads": "Send Messages in Threads",
+    "use_embedded_activities": "Use Activities", "moderate_members": "Timeout Members", "send_polls": "Create Polls",
+    "request_to_speak": "Request to Speak",
+}
+
+
 def pretty(name: str) -> str:
     return name.replace("_", " ").title().replace("Vad", "Voice Activity")
+
+
+def discord_name(name: str, in_channel: bool = False) -> str:
+    """Discord's own wording for a permission ("moderate_members" -> "Timeout Members"), as shown in Server Settings.
+    In a channel's permission overwrites, Manage Roles is called Manage Permissions."""
+    if in_channel and name == "manage_roles":
+        return "Manage Permissions"
+    return DISCORD_NAMES.get(name) or name.replace("_", " ").title().replace(" In ", " in ")
+
+
+def overwrite_states(changes: dict) -> list[tuple[str, str, str]]:
+    """Channel overwrite change -> [(permission, before, after)] with states allowed / denied / default.
+    `changes` holds {"allow": {"added": [...], "removed": [...]}, "deny": {...}} as stored by the event log."""
+    allow, deny = changes.get("allow") or {}, changes.get("deny") or {}
+    touched = {*allow.get("added", []), *allow.get("removed", []), *deny.get("added", []), *deny.get("removed", [])}
+    out = []
+    for p in sorted(touched, key=lambda n: FLAGS.get(n, 1 << 60)):
+        before = "allowed" if p in allow.get("removed", []) else "denied" if p in deny.get("removed", []) else "default"
+        after = "allowed" if p in allow.get("added", []) else "denied" if p in deny.get("added", []) else "default"
+        if before != after:
+            out.append((p, before, after))
+    return out
+
+
+def readable_changes(changes: dict, *, in_channel: bool = False, limit: int = 8) -> list[str]:
+    """Human-readable permission lines for role and channel-overwrite changes:
+    "✅ Timeout Members — now allowed", "❌ Manage Channels — now denied (was allowed)", "⬜ Move Members — reset to default"."""
+    lines: list[str] = []
+    icon = {"allowed": "✅", "denied": "❌", "default": "⬜"}
+    word = {"allowed": "now allowed", "denied": "now denied", "default": "reset to default"}
+    if isinstance(changes, dict) and ("allow" in changes or "deny" in changes):
+        for p, before, after in overwrite_states(changes):
+            was = f" (was {before})" if before != "default" else ""
+            lines.append(f"{icon[after]} {discord_name(p, True)} — {word[after]}{was}")
+    perm = (changes or {}).get("permissions") if isinstance(changes, dict) else None
+    if isinstance(perm, dict):
+        lines += [f"✅ {discord_name(p, in_channel)} — now allowed" for p in perm.get("added", [])]
+        lines += [f"❌ {discord_name(p, in_channel)} — no longer allowed" for p in perm.get("removed", [])]
+    if len(lines) > limit:
+        lines = lines[:limit] + [f"… and {len(lines) - limit} more"]
+    return lines
 
 
 # Common bundles for concise channel expectations in config.

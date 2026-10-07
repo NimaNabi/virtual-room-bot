@@ -20,6 +20,8 @@ Nothing about your server is hard-coded: `config/default.yaml` is copied to `/da
 | Storage | `db.py`, `migrations/*.sql`, `musicdb.py` | numbered additive migrations, key/value store, structured events |
 | Identity & rendering | `identity.py`, `render.py`, `events.py` | every logged person is stored by immutable user ID with a snapshot; logs are a view of stored events |
 | Authorization | `authz.py`, `trust.py`, `perms/` | owner/trust/elevation checks; permission model, privacy audit, snapshots |
+| Feature registry | `features.py` | one list of modules (audience, on/off, setup needs) → Help, Owner → System |
+| Runtime health | `uptime.py` | downtime classification, backup schedule and SQLite-safe snapshots (pure, tested) |
 | UI | `ui.py`, `cogs/app.py` | the 🎛️ Control Center: persistent buttons (`DynamicItem`), navigation stack, Back/Home |
 | Features | `cogs/*.py` | one cog per feature (below) |
 
@@ -34,7 +36,8 @@ Nothing about your server is hard-coded: `config/default.yaml` is copied to `/da
 | Logging | `eventlog` (Discord events → stored events), `ownerlogs` (owner-only log channels), `logs` (search) |
 | Security | `guardian`, `permissions`, `server`, `baseline` (+ `guardian_rules`, `repair`, `autoheal_policy`) |
 | Social | `fun`, `stats`, `presence` |
-| Owner / ops | `backup`, `updates`, `setup` |
+| Moderation add-ons | `automod` (optional word/invite filter) |
+| Owner / ops | `system` (downtime reports, nightly DB backups, server added/removed), `backup` (structure snapshots), `updates`, `setup` |
 | AI (optional) | `ai` (+ `ai/`) |
 
 ## Key flows

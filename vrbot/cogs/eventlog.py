@@ -120,7 +120,7 @@ class EventLog(commands.Cog):
         return None
 
     async def _prime_voice(self, guild: discord.Guild) -> None:
-        for a in ("member_move", "member_disconnect"):
+        for a in ("member_move", "member_disconnect", "message_delete"):
             try:
                 entries = [e async for e in guild.audit_logs(limit=10, action=getattr(discord.AuditLogAction, a))]
                 self.bot.voice_attr.prime([{"id": e.id, "count": getattr(e.extra, "count", 1)} for e in entries])
@@ -249,7 +249,8 @@ class EventLog(commands.Cog):
                "account_age_days": (utcnow() - user.created_at).days,
                "joined_at": user.joined_at.isoformat() if is_member and user.joined_at else None,
                "trust_level": level, "trust_key": key,
-               "roles": [r.name for r in user.roles[1:]] if is_member else None, "member_cached": is_member}
+               "roles": [r.name for r in user.roles[1:]] if is_member else None,
+               "role_ids": [r.id for r in user.roles[1:]] if is_member else None, "member_cached": is_member}
         try:
             rows = await self.bot.db.query_events(LogQuery(guild_id=guild.id, target_id=user.id, limit=200,
                                                            types=["member_join", "invite_used", "guest_join", "tier_change"]))
@@ -457,14 +458,33 @@ class EventLog(commands.Cog):
         msg = payload.cached_message
         if msg and msg.author.bot:
             return
+        if await self.is_log_channel(payload.channel_id):
+            return  # never log the logs
         ch = g.get_channel(payload.channel_id)
         det = {"message_id": payload.message_id,
                "created": discord.utils.snowflake_time(payload.message_id).isoformat()}
         if msg and self.bot.cfg.message_logging.content and self.bot.settings.message_content_intent:
             det["content"] = (msg.content or "")[:1000]
             det["attachments"] = len(msg.attachments)
+        actor_id = actor_name = None
+        conf = "unknown"
+        if msg:   # who deleted it? Only an audit entry (target = author, same channel) can say; self-deletes have none
+            await asyncio.sleep(1.5)
+            try:
+                entries = [e async for e in g.audit_logs(limit=5, action=discord.AuditLogAction.message_delete)]
+                self.bot.voice_attr.observe([{
+                    "id": e.id, "action": "message_delete", "count": getattr(e.extra, "count", 1),
+                    "channel_id": getattr(getattr(e.extra, "channel", None), "id", None),
+                    "target_id": getattr(e.target, "id", None), "executor_id": e.user_id,
+                    "executor_name": getattr(e.user, "name", None), "created_at": e.created_at} for e in entries], utcnow())
+            except discord.HTTPException:
+                pass
+            actor_id, actor_name, conf = self.bot.voice_attr.match("message_delete", payload.channel_id, utcnow(),
+                                                                   target_id=msg.author.id)
+            if conf == "unknown":
+                det["deleted_by"] = "no_moderator_entry"
         await self.record("message_delete", guild=g, target=msg.author if msg else None, channel=ch,
-                          confidence="unknown", details=det)
+                          actor_id=actor_id, actor_name=actor_name, confidence=conf, details=det)
 
     @commands.Cog.listener()
     async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent):
@@ -479,6 +499,8 @@ class EventLog(commands.Cog):
         g = self.bot.guild
         if not g or payload.guild_id != g.id or not self.bot.cfg.message_logging.metadata:
             return
+        if await self.is_log_channel(payload.channel_id):
+            return
         data = payload.data
         author = data.get("author") or {}
         if author.get("bot") or not data.get("edited_timestamp"):
@@ -490,6 +512,12 @@ class EventLog(commands.Cog):
         target = g.get_member(int(author["id"])) if author.get("id") else None
         await self.record("message_edit", guild=g, target=target, channel=g.get_channel(payload.channel_id),
                           confidence="self", details=det)
+
+    async def is_log_channel(self, channel_id: int) -> bool:
+        """Owner log / Guardian alert channels: message activity there is never logged (no log-of-the-log loops)."""
+        keys = ("ownerlogs:voice", "ownerlogs:server", "guardian:alert_channel_id")
+        ids = {str(await self.bot.db.kv_get(k)) for k in keys}
+        return str(channel_id) in ids
 
     @staticmethod
     def _name(guild: discord.Guild, uid: int | None) -> str | None:

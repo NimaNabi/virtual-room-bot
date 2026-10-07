@@ -252,6 +252,17 @@ class Database:
             r = await cur.fetchone()
         return await self.get_snapshot(r[0]) if r else None
 
+    async def strip_message_content(self, days: int) -> int:
+        """Erase message TEXT (content/before/after) from edit/delete events older than `days`; metadata stays."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+        cur = await self.conn.execute(
+            "UPDATE events SET details = json_remove(details, '$.content', '$.before', '$.after') "
+            "WHERE type IN ('message_delete', 'message_edit') AND ts < ? AND details IS NOT NULL "
+            "AND (json_extract(details, '$.content') IS NOT NULL OR json_extract(details, '$.before') IS NOT NULL "
+            "OR json_extract(details, '$.after') IS NOT NULL)", (cutoff,))
+        await self.conn.commit()
+        return cur.rowcount or 0
+
     async def prune_snapshots(self, guild_id: int, keep: int) -> int:
         cur = await self.conn.execute(
             "DELETE FROM snapshots WHERE guild_id=? AND kind != 'manual' AND id NOT IN "

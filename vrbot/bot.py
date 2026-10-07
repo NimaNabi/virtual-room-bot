@@ -51,6 +51,8 @@ MODULES = [
     "vrbot.cogs.welcome",
     "vrbot.cogs.music",
     "vrbot.cogs.ai",
+    "vrbot.cogs.system",
+    "vrbot.cogs.automod",
     "vrbot.cogs.setup",
     "vrbot.cogs.updates",
 ]
@@ -133,6 +135,11 @@ class ServerBot(commands.Bot):
     async def close(self) -> None:
         try:
             self._write_heartbeat(state="stopping")
+            system = self.get_cog("System")
+            if system:
+                await system.record_shutdown("clean")
+        except Exception:  # noqa: BLE001
+            log.warning("shutdown bookkeeping failed", exc_info=True)
         finally:
             await super().close()
             await self.db.close()
@@ -297,7 +304,8 @@ class ServerBot(commands.Bot):
     def _write_heartbeat(self, state: str | None = None) -> None:
         data = {
             "ts": time.time(), "iso": now_iso(),
-            "state": state or ("ready" if self.is_ready() and self.guild else "connecting"),
+            # no_server = logged in to Discord but not in a server yet (invite it first)
+            "state": state or ("ready" if self.is_ready() and self.guild else "no_server" if self.is_ready() else "connecting"),
             "safe_mode": self.safe_mode(),
             "latency_ms": round(self.latency * 1000) if self.latency == self.latency else None,
             "guild": self.guild.name if self.guild else None,
@@ -333,6 +341,7 @@ class ServerBot(commands.Bot):
         r = self.cfg.retention
         try:
             n = await self.db.prune(r.events_days, r.message_events_days, r.voice_events_days)
+            await self.db.strip_message_content(self.cfg.message_logging.content_days)
             if n:
                 log.info("retention pruned %d events", n)
             last = await self.db.latest_snapshot(g.id)

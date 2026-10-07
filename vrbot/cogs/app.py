@@ -118,9 +118,12 @@ def home_buttons(owner: bool, row: int = 0) -> list:
 class TextModal(discord.ui.Modal):
     """The only place members type: search, room name, room limit."""
 
-    def __init__(self, title: str, label: str, on_submit, *, max_length: int = 100, placeholder: str | None = None):
+    def __init__(self, title: str, label: str, on_submit, *, max_length: int = 100, placeholder: str | None = None,
+                 default: str | None = None, long: bool = False, required: bool = True):
         super().__init__(title=title, timeout=300)
-        self.field = discord.ui.TextInput(label=label, max_length=max_length, placeholder=placeholder)
+        self.field = discord.ui.TextInput(label=label, max_length=max_length, placeholder=placeholder, default=default,
+                                          required=required,
+                                          style=discord.TextStyle.paragraph if long else discord.TextStyle.short)
         self.add_item(self.field)
         self._cb = on_submit
 
@@ -151,7 +154,8 @@ class ControlCenter(commands.Cog):
               "friends_invite": "friends", "friends_access": "friends", "friends_myinv": "friends", "help_adv": "help",
               "owner_member": "owner", "owner_activity": "owner", "owner_logs": "owner", "owner_access": "owner",
               "owner_guard": "owner", "owner_find": "owner_logs",
-              "owner_updates": "owner", "owner_updnotes": "owner_updates"}
+              "owner_updates": "owner", "owner_updnotes": "owner_updates", "owner_system": "owner",
+              "owner_automod": "owner_system"}
 
     @property
     def g(self) -> discord.Guild:
@@ -728,6 +732,10 @@ class ControlCenter(commands.Cog):
             "🌙 **Planning tonight?** Social → Tonight's plan.\n"
             "🎲 **Picking teams?** Social → 2 teams.\n\n"
             "Inside your room there's also a control panel in the room's chat."))
+        from ..features import help_lines
+        avail = help_lines(self.bot, self.is_owner(m))
+        if avail:
+            emb.add_field(name="Available to you here", value="\n".join(avail)[:1024], inline=False)
         return emb, view(*home_buttons(False, 0), AppButton("go", "help_adv", label="Advanced", emoji="⌨️", row=1), back(row=1))
 
     async def s_help_adv(self, m):
@@ -751,8 +759,76 @@ class ControlCenter(commands.Cog):
                          AppButton("go", "owner_access", label="Temporary access", emoji="🔑", row=1),
                          AppButton("go", "owner_guard", label="Guardian", emoji="🛡️", row=1),
                          AppButton("go", "owner", label="Refresh", emoji="🔄", row=1),
+                         AppButton("go", "owner_system", label="System", emoji="🩺", row=2) if self.cog("System") else None,
                          AppButton("go", "owner_updates", label="Updates", emoji="⚙️", row=2) if self.cog("Updates") else None,
                          back(row=2))
+
+    async def s_owner_system(self, m):
+        """Health at a glance: uptime + last downtime, database backups, every module's state."""
+        self.need_owner(m)
+        from ..features import status_lines
+        sysc = self.cog("System")
+        lines = [await sysc.downtime_status_line(), "", "**💾 Database backups**", *sysc.backup_status_lines(),
+                 "Restore: stop the bot, then on the host run `python -m vrbot.cli restore <file>` (asks to confirm).",
+                 "", "**🧩 Modules**", *status_lines(self.bot)]
+        emb = discord.Embed(title="🩺 System", color=COLORS["INFO"], description="\n".join(lines)[:3900])
+        return emb, view(AppButton("sysbk", "", label="Backup now", emoji="💾", style=G, row=0),
+                         AppButton("go", "owner_automod", label="AutoMod", emoji="🚫", row=0) if self.cog("AutoMod") else None,
+                         AppButton("go", "owner_system", label="Refresh", emoji="🔄", row=0), back("owner", row=1))
+
+    async def s_owner_automod(self, m):
+        self.need_owner(m)
+        am = self.cog("AutoMod")
+        if not am:
+            raise Toast("AutoMod isn't installed.")
+        c = am.cfg
+        emb = discord.Embed(title="🚫 AutoMod", color=COLORS["INFO"], description="\n".join(am.status_lines()) + (
+            "\n\nRemoves messages with blocked words or invite links to other servers, and re-checks edits. "
+            "`*` matches any letters (`bad*` also catches *badly*). Owner and moderators are never filtered."))
+        tog = lambda key, on, off, row: AppButton("amtog", key, label=off if c.get(key) else on, row=row,  # noqa: E731
+                                                  style=R if c.get(key) and key == "enabled" else (G if key == "enabled" else S))
+        return emb, view(tog("enabled", "Turn on", "Turn off", 0),
+                         AppButton("amwords", "", label="Blocked words…", emoji="📝", row=0),
+                         tog("invites", "Remove invite links", "Allow invite links", 1),
+                         tog("allow_own_invites", "Allow this server's invites", "Block all invites", 1),
+                         tog("exempt_top_level", "Exempt most trusted level", "Don't exempt trusted level", 2),
+                         back("owner_system", row=3))
+
+    async def h_sysbk(self, i, x, v):
+        self.need_owner(i.user)
+        await self.loading(i, "Backing up the database…")
+        r = await self.cog("System").backup_now("manual", actor=i.user)
+        await self.show(i, "owner_system", note=(f"✅ Backup saved: `{r['file']}` ({r['size_kb']} KB)" if r["ok"]
+                                                  else f"❌ Backup failed: {r['error']}"))
+
+    async def h_amtog(self, i, x, v):
+        self.need_owner(i.user)
+        am = self.cog("AutoMod")
+        if x not in ("enabled", "invites", "allow_own_invites", "exempt_top_level"):
+            raise Toast("Unknown setting.")
+        new = not am.cfg.get(x)
+        await am.save(i.user, **{x: new})
+        note = None
+        if x == "enabled" and new and not am.can_read:
+            note = "⚠️ Saved, but AutoMod can't read messages until MESSAGE_CONTENT_INTENT=true is set (and enabled in the Developer Portal)."
+        elif x == "enabled" and new and not (am.cfg["words"] or am.cfg["invites"]):
+            note = "ℹ️ On — add blocked words or turn on the invite filter so it has something to do."
+        await self.show(i, "owner_automod", note=note)
+
+    async def h_amwords(self, i, x, v):
+        self.need_owner(i.user)
+        am = self.cog("AutoMod")
+        from .automod import parse_words
+
+        async def done(mi, text):
+            self.need_owner(mi.user)
+            words = parse_words(text)
+            await am.save(mi.user, words=words)
+            await self.show(mi, "owner_automod", note=f"✅ {len(words)} blocked word(s) saved.")
+        await i.response.send_modal(TextModal("🚫 Blocked words", "One per line (or comma-separated)", done,
+                                              max_length=4000, long=True, required=False,
+                                              default="\n".join(am.cfg["words"])[:4000] or None,
+                                              placeholder="badword\nspam*"))
 
     async def s_owner_updates(self, m):
         """Only present when the Updates module is installed (self-hosted installs)."""
@@ -853,6 +929,13 @@ class ControlCenter(commands.Cog):
         if people:
             emb.add_field(name="Account ID(s)", inline=False,
                           value="\n".join(f"@{n or '?'} — `{u}`" for u, n in list(people.items())[:5]))
+        for r in rows:   # newest first: the roles they held when they last left / were removed
+            if r["type"] in ("member_leave", "member_kick", "member_ban") and r.get("target_id") in people:
+                det = json.loads(r.get("details") or "{}")
+                if det.get("roles"):
+                    emb.add_field(name="Roles when they left", inline=False,
+                                  value=", ".join("@" + n for n in det["roles"])[:1024])
+                break
         emb.set_footer(text="Search by display name, @username or user ID · names link to the profile")
         return emb, view(AppButton("olfind", "", label="Search again", emoji="🔍", row=0), back("owner_logs", row=0))
 

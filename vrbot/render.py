@@ -7,6 +7,14 @@ CONF = {"confirmed": "", "likely": " (likely — audit correlation)", "ambiguous
         "self": " (self)", "unknown": " (actor unknown)"}
 
 
+def permission_lines(t: str, changes: dict) -> list[str]:
+    """Readable permission changes (official Discord names) for role and channel-overwrite events."""
+    from .perms.flags import readable_changes
+    if not isinstance(changes, dict):
+        return []
+    return readable_changes(changes, in_channel=t.startswith(("overwrite_", "channel_")))
+
+
 def domain_detail(t: str, det: dict) -> list[str]:
     """Trust/temporary-authority specifics (shared by /logs and the owner log channels)."""
     parts: list[str] = []
@@ -73,8 +81,11 @@ def event_line(e: dict, discord_ts: bool = True) -> str:
         parts.append(f"until {det['until'][:16]}")
     ch = det.get("changes")
     if isinstance(ch, dict) and ch:
+        perm_lines = permission_lines(t, ch)
         bits = []
         for k, v in list(ch.items())[:4]:
+            if k in ("permissions", "allow", "deny"):
+                continue
             if isinstance(v, dict) and ("added" in v or "removed" in v):
                 s = []
                 if v.get("added"):
@@ -84,6 +95,8 @@ def event_line(e: dict, discord_ts: bool = True) -> str:
                 bits.append(f"{k}: {' '.join(s)}")
             elif isinstance(v, dict):
                 bits.append(f"{k}: {v.get('before')}→{v.get('after')}")
+        if perm_lines:
+            bits.append("; ".join(perm_lines))
         if bits:
             parts.append("[" + "; ".join(bits) + "]")
     conf = e.get("actor_confidence") or "unknown"
@@ -119,7 +132,23 @@ OWNER_ICONS = {
     "nick_change": "✏️ nickname", "role_add": "➕ role", "role_remove": "➖ role", "zero_pass_grant": "🗝️ Owner area pass",
     "zero_pass_revoke": "🔒 Owner area pass removed", "invite_used": "🎟️ joined via invite", "repair_applied": "🔧 repair", "autoheal": "🩹 auto-heal",
     "safe_mode_on": "🛑 Safe Mode ON", "safe_mode_off": "🟢 Safe Mode OFF", "backup_created": "💾 backup",
+    "db_backup": "💾 database backup", "db_backup_failed": "⚠️ database backup FAILED",
+    "automod_delete": "🚫 message removed by AutoMod", "automod_config": "🚫 AutoMod settings changed",
 }
+
+
+def downtime_line(det: dict) -> str:
+    """⚠️ Bot was offline for 47 min · <from> → <to> · likely reason: … (times render in the viewer's timezone)."""
+    from .uptime import REASONS, human_duration
+    periods = det.get("periods") or []
+    if not periods:
+        return "⚠️ Bot was offline (no details)"
+    def one(p):
+        return (f"**{human_duration(p['seconds'])}** · <t:{int(p['from'])}:f> → <t:{int(p['to'])}:t> · "
+                f"likely reason: {REASONS.get(p.get('reason'), p.get('reason'))}")
+    if len(periods) == 1:
+        return "⚠️ Bot was offline for " + one(periods[0])
+    return f"⚠️ Bot was offline {len(periods)} times: " + " | ".join(one(p) for p in periods[:5])
 
 
 def _dur(s: int) -> str:
@@ -184,6 +213,20 @@ def owner_log_line(e: dict) -> str:
     except (KeyError, ValueError):
         ts = e.get("ts", "?")
     t = e["type"]
+    from .identity import label as _lab
+    people = "".join(f" · {k} {_lab(det.get(sk), e.get(nk), e.get(ik))}" for k, ik, sk, nk in (
+        ("about", "target_id", "target_identity", "target_name"), ("by", "actor_id", "actor_identity", "actor_name"))
+        if e.get(ik))
+    if t == "bot_downtime":
+        return f"{ts} {downtime_line(det)}{people}"
+    if t in ("bot_guild_join", "bot_guild_remove"):
+        verb = "➕ Bot was added to" if t == "bot_guild_join" else "➖ Bot was removed from"
+        late = " (while it was offline)" if det.get("while_offline") else ""
+        size = f" · {det['members']} members" if det.get("members") else ""
+        return f"{ts} {verb} server **{det.get('name') or '?'}**{size}{late}{people}"
+    if t in ("db_backup", "db_backup_failed"):
+        return (f"{ts} {OWNER_ICONS[t]} · {det.get('file', '')} · {det.get('size_kb', '?')} KB{people}"
+                if t == "db_backup" else f"{ts} {OWNER_ICONS[t]} · {det.get('error', '?')}{people}")
     who = e.get("target_name") or "—"
     what = OWNER_ICONS.get(t, t.replace("_", " "))
     if t in ("member_join", "member_leave", "member_kick", "member_ban") and (det.get("user_id") or e.get("target_id")):
@@ -205,12 +248,21 @@ def owner_log_line(e: dict) -> str:
         parts.append(f"'{det.get('old')}' → '{det.get('new')}'")
     if det.get("session_seconds") is not None:
         parts.append(f"· session {'≥' if det.get('session_approx') else ''}{_dur(det['session_seconds'])}")
+    perm = permission_lines(t, det.get("changes") or {})
+    if perm:
+        if det.get("overwrite_for"):
+            parts.append(f"for **{det['overwrite_for']}**")
+        parts.append("· " + " · ".join(perm))
     conf = e.get("actor_confidence")
     if (e.get("actor_name") or e.get("actor_id")) and e.get("actor_id") != e.get("target_id") and conf != "self":
         parts.append(f"· by {label(det.get('actor_identity'), e.get('actor_name'), e.get('actor_id'))}"
                      + (f" ({conf})" if conf not in ("confirmed", None) else ""))
+    elif conf == "ambiguous":
+        parts.append("· actor unknown (several moderators acted at the same time)")
     elif conf == "unknown" and e.get("category") == "moderation":
         parts.append("· actor unknown")
+    if det.get("deleted_by") == "no_moderator_entry":
+        parts.append("· no moderator delete recorded (usually the author)")
     if e.get("reason") and e.get("category") != "voice":
         parts.append(f"— {e['reason'][:120]}")
     return " ".join(parts)

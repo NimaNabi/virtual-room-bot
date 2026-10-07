@@ -34,6 +34,8 @@ CATEGORY = {
     "voice_bot_move": "voice", "invite_used": "membership",
     "command_denied": "security", "safe_mode_on": "security", "safe_mode_off": "security",
     "bot_started": "bot", "ai_query": "bot", "voice_room_create": "voice", "voice_room_delete": "voice",
+    "bot_downtime": "bot", "db_backup": "bot", "db_backup_failed": "bot", "bot_guild_join": "bot",
+    "bot_guild_remove": "bot", "automod_delete": "moderation", "automod_config": "security",
 }
 
 
@@ -150,10 +152,13 @@ class AuditBuffer:
 
 
 class VoiceAttributor:
-    """Correlates target-less MEMBER_MOVE / MEMBER_DISCONNECT audit entries with voice events.
+    """Correlates aggregated audit entries (count-based) with gateway events: MEMBER_MOVE / MEMBER_DISCONNECT
+    (no target at all) and MESSAGE_DELETE (target = author, plus channel).
 
-    Each observed increase of an entry's `count` becomes that many 'credits'. A voice event consumes
-    one matching credit. Entries seen during priming never produce credits (they are history).
+    Discord merges repeated actions by the same moderator into ONE entry and bumps its `count`. So each observed
+    increase of an entry's count becomes that many 'credits'; an event consumes one matching credit. Entries seen
+    during priming never produce credits (they are history). If credits from DIFFERENT executors match, nobody is
+    named: a wrong accusation is worse than "actor unknown".
     """
 
     def __init__(self, window: float = 45.0):
@@ -179,21 +184,31 @@ class VoiceAttributor:
             if delta:
                 self.credits.append({"entry": e["id"], "action": e["action"], "executor_id": e["executor_id"],
                                      "executor_name": e.get("executor_name"), "channel_id": e.get("channel_id"),
-                                     "n": delta, "at": now})
+                                     "target_id": e.get("target_id"), "n": delta, "at": now})
         cutoff = now - timedelta(seconds=self.window)
         self.credits = [c for c in self.credits if c["at"] >= cutoff and c["n"] > 0]
 
-    def match(self, action: str, channel_id: int | None, now: datetime) -> tuple[int | None, str | None, str]:
-        """Return (executor_id, executor_name, confidence) where confidence in likely|ambiguous|unknown."""
-        cands = [c for c in self.credits if c["action"] == action
-                 and (action != "member_move" or c["channel_id"] in (None, channel_id))]
-        executors = {c["executor_id"] for c in cands}
+    def match(self, action: str, channel_id: int | None, now: datetime,
+              target_id: int | None = None) -> tuple[int | None, str | None, str]:
+        """Return (executor_id, executor_name, confidence), confidence in likely|ambiguous|unknown.
+        'ambiguous' never names an executor and consumes nothing (we cannot know whose credit it was)."""
+        def fits(c):
+            if c["action"] != action:
+                return False
+            if action in ("member_move", "message_delete") and c["channel_id"] not in (None, channel_id):
+                return False
+            if c.get("target_id") is not None and c["target_id"] != target_id:
+                return False
+            return True
+        cands = [c for c in self.credits if fits(c)]
         if not cands:
             return None, None, "unknown"
+        if len({c["executor_id"] for c in cands}) > 1:
+            return None, None, "ambiguous"
         c = cands[0]
         c["n"] -= 1
         self.credits = [x for x in self.credits if x["n"] > 0]
-        return c["executor_id"], c["executor_name"], ("likely" if len(executors) == 1 else "ambiguous")
+        return c["executor_id"], c["executor_name"], "likely"
 
 
 class JoinRate:

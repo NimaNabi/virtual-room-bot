@@ -7,7 +7,9 @@ A self-hosted, configurable Discord bot with a tap-first menu (🎛️ Control C
 - 🧭 **Trust levels.** Three levels decide who sees which private areas. You choose their names and colours, and each member holds exactly one level.
 - 🎟️ **Guest invites.** Chosen levels can bring friends in with one-time invites. New members get the default level.
 - 🔑 **Temporary access.** Temporary moderator or admin access always expires.
-- 🛡️ **Owner tools.** Private logs (voice, joins, server changes), a privacy and permission doctor, Guardian alerts, snapshots and optional auto-heal.
+- 🛡️ **Owner tools.** Private logs (voice, joins, server changes) with *Find person* (works after renames and departures), a privacy and permission doctor, Guardian alerts, snapshots and optional auto-heal. Permission changes are shown in plain words ("✅ Timeout Members — now allowed").
+- 🩺 **System health.** Owner → System shows uptime, the last downtime ("offline for 47 min, from → to, likely reason"), nightly local database backups with **Backup now**, and the state of every module.
+- 🚫 **Optional AutoMod.** Blocked words (with `*` wildcards, Unicode- and Arabic-script-aware) and invite-link filtering, configured with buttons. Off by default.
 - 🎮 **Social.** Tonight's plan and random teams.
 
 Everything runs on **your** machine: the bot, its SQLite database and a local Lavalink music node. The bot only talks to Discord, the music or radio sources you play, and an AI API if you configure one.
@@ -89,11 +91,28 @@ The repository is public, so checks and downloads need no account or token. For 
 
 Your configuration and data live in the Docker volume `virtual-room-bot_vrbot-data`, never in the code folder, so updates keep them. Database migrations run automatically and only add.
 
-## Backup
+## Backups and restore
+The bot backs up its database **every night** (04:00 in your `TZ`, configurable under `system:` in `server.yaml`) and keeps the last 7. If the computer was off at that time, it catches up once when it's back. Backups stay on your machine; nothing is uploaded. Owner → System shows the last and next backup, and **Backup now**.
 ```
-docker compose exec bot python -m vrbot.cli backup     # copy of the database in /data/backups
+docker compose exec bot python -m vrbot.cli backups            # list backups
+docker compose exec bot python -m vrbot.cli backup             # extra manual copy
+```
+**Restore** is deliberately not a button. Stop the bot, restore, start it again:
+```
+docker compose stop bot
+docker compose run --rm bot python -m vrbot.cli restore auto-20261007-040000.db
+docker compose up -d bot
+```
+It checks the backup's integrity, asks you to type RESTORE, and keeps your current database as a `pre-restore-…` copy.
+To copy everything (database, configuration, backups) off the machine:
+```
 docker run --rm -v virtual-room-bot_vrbot-data:/data -v "$PWD":/out alpine tar czf /out/vrbot-data.tgz -C /data .
 ```
+
+## Privacy defaults
+- **Message edit/delete logging is off.** Turn it on in `server.yaml` (`message_logging.metadata: true`) to log who edited or deleted what, where and when. Message *text* is only kept with `content: true` plus the Message Content intent, and is erased after `content_days` (7). Log channels are never logged.
+- **AutoMod is off** until the owner turns it on (Owner → System → AutoMod). It needs `MESSAGE_CONTENT_INTENT=true`.
+- **Downtime notices** go to the owner-only log; a DM is optional (`system.downtime_dm_owner`).
 
 ## Troubleshooting
 | Symptom | Check |
